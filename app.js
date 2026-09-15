@@ -1893,3 +1893,580 @@ setTimeout(function(){
 
 })();
 
+
+/* =========================================================
+   SUPABASE CUSTOMER MENU
+   Load products added from Admin Panel
+   ========================================================= */
+
+let customerProducts = [];
+
+async function loadCustomerProducts() {
+  try {
+    if (typeof supabaseClient === "undefined") {
+      console.error("Supabase client not found.");
+      return;
+    }
+
+    const { data, error } = await supabaseClient
+      .from("products")
+      .select(`
+        id,
+        name,
+        price,
+        description,
+        photo_url,
+        available,
+        bestseller,
+        category_id,
+        subcategory_id
+      `)
+      .eq("available", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Products loading error:", error);
+      return;
+    }
+
+    customerProducts = data || [];
+
+    console.log("Supabase products loaded:", customerProducts);
+
+    renderCustomerPopularProducts();
+  } catch (err) {
+    console.error("Customer menu error:", err);
+  }
+}
+
+
+/* ---------- Product Photo ---------- */
+
+function getProductPhoto(product) {
+
+  if (!product.photo_url) {
+    return null;
+  }
+
+  /* If photo_url is already a complete URL */
+  if (
+    product.photo_url.startsWith("http://") ||
+    product.photo_url.startsWith("https://")
+  ) {
+    return product.photo_url;
+  }
+
+  /* If only storage path is saved */
+  try {
+    const { data } = supabaseClient
+      .storage
+      .from("product-images")
+      .getPublicUrl(product.photo_url);
+
+    return data?.publicUrl || null;
+
+  } catch (err) {
+    return null;
+  }
+}
+
+
+/* ---------- Popular Products ---------- */
+
+function renderCustomerPopularProducts() {
+
+  const grid = document.querySelector(".food-grid");
+
+  if (!grid || !customerProducts.length) {
+    return;
+  }
+
+  const popular = customerProducts
+    .filter(product => product.bestseller === true)
+    .slice(0, 4);
+
+  const productsToShow =
+    popular.length > 0
+      ? popular
+      : customerProducts.slice(0, 4);
+
+  grid.innerHTML = productsToShow
+    .map(product => customerProductCard(product))
+    .join("");
+}
+
+
+/* ---------- Customer Product Card ---------- */
+
+function customerProductCard(product) {
+
+  const photo = getProductPhoto(product);
+
+  const imageHTML = photo
+    ? `
+      <img
+        src="${photo}"
+        alt="${escapeHTML(product.name)}"
+        loading="lazy"
+        style="
+          width:100%;
+          height:100%;
+          object-fit:cover;
+          border-radius:inherit;
+          display:block;
+        "
+      >
+    `
+    : `
+      <div style="
+        width:100%;
+        height:100%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:55px;
+      ">
+        🍽️
+      </div>
+    `;
+
+  return `
+    <article class="food-card">
+
+      <div class="food-photo" style="overflow:hidden;">
+        ${imageHTML}
+      </div>
+
+      <div class="food-info">
+
+        ${
+          product.bestseller
+            ? `<span class="badge">Bestseller</span>`
+            : ""
+        }
+
+        <div class="food-row">
+          <h3>${escapeHTML(product.name)}</h3>
+          <b>₹${Number(product.price || 0)}</b>
+        </div>
+
+        <p>
+          ${escapeHTML(product.description || "Delicious food prepared fresh for you.")}
+        </p>
+
+        <button
+          onclick="addToCart(
+            '${escapeJS(product.name)}',
+            ${Number(product.price || 0)},
+            this
+          )"
+        >
+          + Add
+        </button>
+
+      </div>
+
+    </article>
+  `;
+}
+
+
+/* ---------- Safe Text ---------- */
+
+function escapeHTML(value) {
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+
+function escapeJS(value) {
+
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "");
+}
+
+
+/* =========================================================
+   DYNAMIC FULL MENU
+   ========================================================= */
+
+window.openFullMenu = async function() {
+
+  document.querySelector(".full-menu-modal")?.remove();
+
+  if (!customerProducts.length) {
+    await loadCustomerProducts();
+  }
+
+  const modal = document.createElement("div");
+
+  modal.className = "full-menu-modal show";
+
+  modal.innerHTML = `
+
+    <div class="full-menu-box">
+
+      <div class="full-menu-top">
+
+        <div class="full-menu-brand">
+          <small>RESTAURANT MENU</small>
+          <h2>Our Menu</h2>
+        </div>
+
+        <button
+          class="full-menu-close"
+          onclick="this.closest('.full-menu-modal').remove()"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <input
+        class="menu-search"
+        id="menuSearch"
+        placeholder="🔍  Search dishes..."
+        oninput="filterSupabaseMenu(this.value)"
+      >
+
+      <div class="menu-tabs" id="supabaseMenuTabs">
+
+        <button
+          class="menu-tab active"
+          onclick="filterSupabaseCategory('all', this)"
+        >
+          All
+        </button>
+
+      </div>
+
+      <div id="supabaseFullMenuContent">
+
+        ${renderSupabaseMenuContent()}
+
+      </div>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  await loadSupabaseCategories();
+
+};
+
+
+/* =========================================================
+   CATEGORY / SUB-CATEGORY
+   ========================================================= */
+
+async function loadSupabaseCategories() {
+
+  const tabs = document.getElementById("supabaseMenuTabs");
+
+  if (!tabs) return;
+
+  try {
+
+    const categoryIds = [
+      ...new Set(
+        customerProducts
+          .map(p => p.category_id)
+          .filter(Boolean)
+      )
+    ];
+
+    if (!categoryIds.length) return;
+
+    const { data, error } = await supabaseClient
+      .from("categories")
+      .select("id,name")
+      .in("id", categoryIds);
+
+    if (error) {
+      console.error("Category loading error:", error);
+      return;
+    }
+
+    const categories = data || [];
+
+    categories.forEach(category => {
+
+      const button = document.createElement("button");
+
+      button.className = "menu-tab";
+
+      button.textContent = category.name;
+
+      button.dataset.categoryId = category.id;
+
+      button.onclick = function() {
+
+        filterSupabaseCategory(category.id, this);
+
+      };
+
+      tabs.appendChild(button);
+
+    });
+
+  } catch (err) {
+
+    console.error("Category error:", err);
+
+  }
+
+}
+
+
+/* =========================================================
+   FULL MENU CONTENT
+   ========================================================= */
+
+function renderSupabaseMenuContent(products = customerProducts) {
+
+  if (!products.length) {
+
+    return `
+      <div style="
+        text-align:center;
+        padding:50px 20px;
+        color:#777;
+      ">
+        <div style="font-size:50px;">🍽️</div>
+        <h3>No dishes available</h3>
+        <p>Please check back soon.</p>
+      </div>
+    `;
+
+  }
+
+  const grouped = {};
+
+  products.forEach(product => {
+
+    const category =
+      product.category_id || "other";
+
+    if (!grouped[category]) {
+      grouped[category] = [];
+    }
+
+    grouped[category].push(product);
+
+  });
+
+
+  return Object.keys(grouped)
+    .map(categoryId => {
+
+      const items = grouped[categoryId];
+
+      return `
+
+        <div
+          class="menu-category supabase-menu-category"
+          data-category-id="${categoryId}"
+        >
+
+          <div class="menu-category-title">
+
+            <h3>
+              🍽️ ${getCategoryName(categoryId)}
+            </h3>
+
+            <span>
+              ${items.length} items
+            </span>
+
+          </div>
+
+          ${items
+ .map(product => `
+              <div
+                class="menu-row supabase-menu-row"
+                data-name="${escapeHTML(
+                  product.name.toLowerCase()
+                )}"
+              >
+
+                <div
+                  class="menu-row-icon"
+                  style="overflow:hidden;"
+                >
+
+                  ${
+                    getProductPhoto(product)
+                      ? `
+                        <img
+                          src="${getProductPhoto(product)}"
+                          alt="${escapeHTML(product.name)}"
+                          style="
+                            width:100%;
+                            height:100%;
+                            object-fit:cover;
+                            border-radius:12px;
+                          "
+                        >
+                      `
+                      : "🍽️"
+                  }
+
+                </div>
+
+                <div class="menu-row-info">
+
+                  <strong>
+                    ${escapeHTML(product.name)}
+                  </strong>
+
+                  <span>
+                    ${escapeHTML(
+                      product.description || ""
+                    )}
+                  </span>
+
+                </div>
+
+                <div class="menu-price">
+                  ₹${Number(product.price || 0)}
+                </div>
+
+                <button
+                  class="menu-add"
+                  onclick="addToCart(
+                    '${escapeJS(product.name)}',
+                    ${Number(product.price || 0)},
+                    this
+                  )"
+                >
+                  + Add
+                </button>
+
+              </div>
+            `)
+            .join("")}
+
+        </div>
+
+      `;
+
+    })
+    .join("");
+
+}
+
+
+/* ---------- Category Names ---------- */
+
+function getCategoryName(id) {
+
+  const product = customerProducts.find(
+    p => p.category_id === id
+  );
+
+  return product?.category_name || "Menu";
+
+}
+
+
+/* ---------- Category Filter ---------- */
+
+window.filterSupabaseCategory = function(categoryId, button) {
+
+  document
+    .querySelectorAll("#supabaseMenuTabs .menu-tab")
+    .forEach(tab => tab.classList.remove("active"));
+
+  button?.classList.add("active");
+
+  document
+    .querySelectorAll(".supabase-menu-category")
+    .forEach(section => {
+
+      if (
+        categoryId === "all" ||
+        section.dataset.categoryId === categoryId
+      ) {
+
+        section.style.display = "";
+
+      } else {
+
+        section.style.display = "none";
+
+      }
+
+    });
+
+};
+
+
+/* ---------- Search ---------- */
+
+window.filterSupabaseMenu = function(value) {
+
+  const query =
+    String(value || "")
+      .toLowerCase()
+      .trim();
+
+  document
+    .querySelectorAll(".supabase-menu-category")
+    .forEach(section => {
+
+      let visible = 0;
+
+      section
+        .querySelectorAll(".supabase-menu-row")
+        .forEach(row => {
+
+          const name =
+            row.dataset.name || "";
+
+          if (name.includes(query)) {
+
+            row.style.display = "";
+            visible++;
+
+          } else {
+
+            row.style.display = "none";
+
+          }
+
+        });
+
+      section.style.display =
+        visible > 0 ? "" : "none";
+
+    });
+
+};
+
+
+/* =========================================================
+   LOAD WHEN CUSTOMER WEBSITE OPENS
+   ========================================================= */
+
+if (document.readyState === "loading") {
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    loadCustomerProducts
+  );
+
+} else {
+
+  loadCustomerProducts();
+
+}
+
