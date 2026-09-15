@@ -2470,3 +2470,975 @@ if (document.readyState === "loading") {
 
 }
 
+
+/* =========================================================
+   FINAL SUPABASE FULL MENU
+   Admin Categories + Products -> Customer Full Menu
+   ========================================================= */
+
+let liveMenuProducts = [];
+let liveMenuCategories = [];
+
+window.openFullMenu = async function () {
+  document.querySelector(".full-menu-modal")?.remove();
+
+  const modal = document.createElement("div");
+  modal.className = "full-menu-modal show";
+
+  modal.innerHTML = `
+    <div class="full-menu-box">
+
+      <div class="full-menu-top">
+        <div class="full-menu-brand">
+          <small>RESTAURANT MENU</small>
+          <h2>Our Menu</h2>
+        </div>
+
+        <button
+          class="full-menu-close"
+          onclick="this.closest('.full-menu-modal').remove()">
+          ×
+        </button>
+      </div>
+
+      <input
+        id="liveMenuSearch"
+        class="menu-search"
+        placeholder="🔍 Search dishes..."
+        oninput="searchLiveMenu(this.value)"
+      >
+
+      <div id="liveMenuTabs" class="menu-tabs">
+        <button
+          class="menu-tab active"
+          onclick="showLiveCategory('all',this)">
+          All
+        </button>
+      </div>
+
+      <div id="liveMenuContent">
+        <div style="text-align:center;padding:50px 20px;">
+          <div style="font-size:45px;">⏳</div>
+          <p>Loading menu...</p>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  await loadLiveMenu();
+};
+
+
+/* LOAD CATEGORIES + PRODUCTS */
+
+async function loadLiveMenu() {
+
+  const content = document.getElementById("liveMenuContent");
+
+  try {
+
+    if (typeof supabaseClient === "undefined") {
+      throw new Error("Supabase client not found");
+    }
+
+    /* Categories */
+
+    const categoryResult = await supabaseClient
+      .from("categories")
+      .select("id,name,parent_id")
+      .order("name");
+
+    if (categoryResult.error) {
+      throw categoryResult.error;
+    }
+
+    liveMenuCategories = categoryResult.data || [];
+
+
+    /* Products */
+
+    const productResult = await supabaseClient
+      .from("products")
+      .select(`
+        id,
+        name,
+        price,
+        description,
+        photo_url,
+        available,
+        bestseller,
+        category_id,
+        subcategory_id
+      `)
+      .eq("available", true)
+      .order("created_at", { ascending: false });
+
+    if (productResult.error) {
+      throw productResult.error;
+    }
+
+    liveMenuProducts = productResult.data || [];
+
+
+    renderLiveMenuTabs();
+    renderLiveMenu();
+
+
+  } catch (error) {
+
+    console.error("FULL MENU ERROR:", error);
+
+    if (content) {
+      content.innerHTML = `
+        <div style="
+          text-align:center;
+          padding:45px 20px;
+          color:#777;
+        ">
+          <div style="font-size:45px;">⚠️</div>
+
+          <h3>Menu could not be loaded</h3>
+
+          <p style="font-size:13px;">
+            ${escapeHTML(error.message || "Unknown error")}
+          </p>
+        </div>
+      `;
+    }
+  }
+}
+
+
+/* CATEGORY TABS */
+
+function renderLiveMenuTabs() {
+
+  const tabs = document.getElementById("liveMenuTabs");
+
+  if (!tabs) return;
+
+  const parents = liveMenuCategories.filter(
+    category => !category.parent_id
+  );
+
+  tabs.innerHTML = `
+    <button
+      class="menu-tab active"
+      onclick="showLiveCategory('all',this)">
+      All
+    </button>
+  `;
+
+  parents.forEach(category => {
+
+    const button = document.createElement("button");
+
+    button.className = "menu-tab";
+
+    button.textContent = category.name;
+
+    button.onclick = function () {
+      showLiveCategory(category.id, this);
+    };
+
+    tabs.appendChild(button);
+
+  });
+}
+
+
+/* MENU */
+
+function renderLiveMenu(products = liveMenuProducts) {
+
+  const content = document.getElementById("liveMenuContent");
+
+  if (!content) return;
+
+  if (!products.length) {
+
+    content.innerHTML = `
+      <div style="
+        text-align:center;
+        padding:50px 20px;
+        color:#777;
+      ">
+        <div style="font-size:50px;">🍽️</div>
+        <h3>No dishes available</h3>
+        <p>Please check back soon.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  const parents = liveMenuCategories.filter(
+    category => !category.parent_id
+  );
+
+
+  let html = "";
+
+
+  parents.forEach(parent => {
+
+    const categoryProducts = products.filter(product => {
+
+      const category = liveMenuCategories.find(
+        c => c.id === product.category_id
+      );
+
+      if (!category) return false;
+
+      return (
+        category.id === parent.id ||
+        category.parent_id === parent.id
+      );
+
+    });
+
+
+    if (!categoryProducts.length) return;
+
+
+    html += `
+      <div
+        class="menu-category live-menu-category"
+        data-category-id="${parent.id}"
+      >
+
+        <div class="menu-category-title">
+          <h3>🍽️ ${escapeHTML(parent.name)}</h3>
+
+          <span>
+            ${categoryProducts.length} items
+          </span>
+        </div>
+
+        ${categoryProducts
+          .map(product => liveMenuItem(product))
+          .join("")}
+
+      </div>
+    `;
+
+  });
+
+
+  /* Products without matching category */
+
+  const uncategorized = products.filter(product => {
+
+    return !liveMenuCategories.some(
+      category => category.id === product.category_id
+    );
+
+  });
+
+
+  if (uncategorized.length) {
+
+    html += `
+      <div class="menu-category live-menu-category">
+
+        <div class="menu-category-title">
+          <h3>🍽️ Other</h3>
+          <span>${uncategorized.length} items</span>
+        </div>
+
+        ${uncategorized
+          .map(product => liveMenuItem(product))
+          .join("")}
+
+      </div>
+    `;
+
+  }
+
+
+  content.innerHTML = html || `
+    <div style="
+      text-align:center;
+      padding:50px 20px;
+      color:#777;
+    ">
+      <div style="font-size:50px;">🍽️</div>
+      <h3>No dishes available</h3>
+    </div>
+  `;
+}
+
+
+/* PRODUCT CARD */
+
+function liveMenuItem(product) {
+
+  const photo = getLiveProductPhoto(product);
+
+  return `
+    <div
+      class="menu-row live-menu-row"
+      data-category-id="${product.category_id || ""}"
+      data-name="${escapeHTML(
+        String(product.name || "").toLowerCase()
+      )}"
+    >
+
+      <div
+        class="menu-row-icon"
+        style="overflow:hidden;"
+      >
+
+        ${
+          photo
+            ? `
+              <img
+                src="${photo}"
+                alt="${escapeHTML(product.name)}"
+                style="
+                  width:100%;
+                  height:100%;
+                  object-fit:cover;
+                  border-radius:12px;
+                "
+              >
+            `
+            : "🍽️"
+        }
+
+      </div>
+
+
+      <div class="menu-row-info">
+
+        <strong>
+          ${escapeHTML(product.name)}
+        </strong>
+
+        <span>
+          ${escapeHTML(
+            product.description || ""
+          )}
+        </span>
+
+        ${
+          product.bestseller
+            ? `<small style="color:#d97706;font-weight:700;">
+                 Bestseller
+               </small>`
+            : ""
+        }
+
+      </div>
+
+
+      <div class="menu-price">
+        ₹${Number(product.price || 0)}
+      </div>
+
+
+      <button
+        class="menu-add"
+        onclick="addToCart(
+          '${escapeJS(product.name)}',
+          ${Number(product.price || 0)},
+          this
+        )"
+      >
+        + Add
+      </button>
+
+    </div>
+  `;
+}
+
+
+/* PHOTO */
+
+function getLiveProductPhoto(product) {
+
+  if (!product.photo_url) {
+    return null;
+  }
+
+  if (
+    product.photo_url.startsWith("http://") ||
+    product.photo_url.startsWith("https://")
+  ) {
+    return product.photo_url;
+  }
+
+  try {
+
+    const result = supabaseClient
+      .storage
+      .from("product-images")
+      .getPublicUrl(product.photo_url);
+
+    return result?.data?.publicUrl || null;
+
+  } catch (error) {
+
+    console.error("PHOTO ERROR:", error);
+
+    return null;
+  }
+}
+
+
+/* CATEGORY FILTER */
+
+window.showLiveCategory = function(categoryId, button) {
+
+  document
+    .querySelectorAll("#liveMenuTabs .menu-tab")
+    .forEach(tab => {
+      tab.classList.remove("active");
+    });
+
+  button?.classList.add("active");
+
+
+  const sections = document.querySelectorAll(
+    ".live-menu-category"
+  );
+
+
+  sections.forEach(section => {
+
+    if (
+      categoryId === "all" ||
+      section.dataset.categoryId === categoryId
+    ) {
+      section.style.display = "";
+    } else {
+      section.style.display = "none";
+    }
+
+  });
+
+};
+
+
+/* SEARCH */
+
+window.searchLiveMenu = function(value) {
+
+  const query = String(value || "")
+    .toLowerCase()
+    .trim();
+
+
+  document
+    .querySelectorAll(".live-menu-category")
+    .forEach(section => {
+
+      let visible = 0;
+
+
+      section
+        .querySelectorAll(".live-menu-row")
+        .forEach(row => {
+
+          const name =
+            row.dataset.name || "";
+
+          if (name.includes(query)) {
+
+            row.style.display = "";
+
+            visible++;
+
+          } else {
+
+            row.style.display = "none";
+
+          }
+
+        });
+
+
+      section.style.display =
+        visible > 0 ? "" : "none";
+
+    });
+
+};
+
+
+/* VIEW FULL MENU CLICK */
+
+document.addEventListener(
+  "click",
+  function(event) {
+
+    const button =
+      event.target.closest(".view-menu");
+
+    if (!button) return;
+
+    event.preventDefault();
+
+    window.openFullMenu();
+
+  },
+  true
+);
+
+
+/* ===== FINAL CUSTOMER MENU FIX ===== */
+
+window.openFullMenu = async function () {
+
+  const old = document.querySelector(".full-menu-modal");
+  if (old) old.remove();
+
+  const modal = document.createElement("div");
+  modal.className = "full-menu-modal show";
+
+  modal.innerHTML = `
+    <div class="full-menu-box">
+
+      <div class="full-menu-top">
+        <div class="full-menu-brand">
+          <small>RESTAURANT MENU</small>
+          <h2>Our Menu</h2>
+        </div>
+
+        <button class="full-menu-close"
+          onclick="this.closest('.full-menu-modal').remove()">
+          ×
+        </button>
+      </div>
+
+      <input
+        class="menu-search"
+        id="customerMenuSearch"
+        placeholder="🔍 Search dishes..."
+      >
+
+      <div class="menu-tabs" id="customerMenuTabs">
+        <button class="menu-tab active">All</button>
+      </div>
+
+      <div id="customerMenuContent"
+           style="padding-top:20px;text-align:center;">
+        <div style="font-size:40px;">⏳</div>
+        <p>Loading menu...</p>
+      </div>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  await loadFinalCustomerMenu();
+};
+
+
+/* LOAD DATA */
+
+async function loadFinalCustomerMenu() {
+
+  const content =
+    document.getElementById("customerMenuContent");
+
+  try {
+
+    if (typeof supabaseClient === "undefined") {
+      throw new Error("Supabase client is not loaded");
+    }
+
+
+    /* GET CATEGORIES */
+
+    const catResult =
+      await supabaseClient
+        .from("categories")
+        .select("id,name,parent_id")
+        .order("name");
+
+    if (catResult.error) {
+      throw new Error(
+        "Categories: " + catResult.error.message
+      );
+    }
+
+
+    const categories = catResult.data || [];
+
+
+    /* GET PRODUCTS */
+
+    const productResult =
+      await supabaseClient
+        .from("products")
+        .select(`
+          id,
+          name,
+          price,
+          description,
+          photo_url,
+          available,
+          bestseller,
+          category_id
+        `)
+        .eq("available", true)
+        .order("created_at", {
+          ascending: false
+        });
+
+
+    if (productResult.error) {
+      throw new Error(
+        "Products: " + productResult.error.message
+      );
+    }
+
+
+    const products = productResult.data || [];
+
+
+    console.log(
+      "CUSTOMER MENU CATEGORIES:",
+      categories
+    );
+
+    console.log(
+      "CUSTOMER MENU PRODUCTS:",
+      products
+    );
+
+
+    /* TABS */
+
+    const tabs =
+      document.getElementById("customerMenuTabs");
+
+    const parentCategories =
+      categories.filter(c => !c.parent_id);
+
+
+    parentCategories.forEach(category => {
+
+      const btn =
+        document.createElement("button");
+
+      btn.className = "menu-tab";
+
+      btn.textContent = category.name;
+
+      btn.onclick = function () {
+
+        document
+          .querySelectorAll(
+            "#customerMenuTabs .menu-tab"
+          )
+          .forEach(x =>
+            x.classList.remove("active")
+          );
+
+        btn.classList.add("active");
+
+        renderFinalCustomerProducts(
+          products.filter(p =>
+            p.category_id === category.id ||
+            categories.some(
+              sub =>
+                sub.id === p.category_id &&
+                sub.parent_id === category.id
+            )
+          ),
+          categories
+        );
+      };
+
+      tabs.appendChild(btn);
+
+    });
+
+
+    renderFinalCustomerProducts(
+      products,
+      categories
+    );
+
+
+    /* SEARCH */
+
+    document
+      .getElementById("customerMenuSearch")
+      ?.addEventListener(
+        "input",
+        function () {
+
+          const q =
+            this.value.toLowerCase().trim();
+
+          const filtered =
+            products.filter(p =>
+              String(p.name || "")
+                .toLowerCase()
+                .includes(q)
+            );
+
+          renderFinalCustomerProducts(
+            filtered,
+            categories
+          );
+
+        }
+      );
+
+
+  } catch (error) {
+
+    console.error(
+      "CUSTOMER MENU ERROR:",
+      error
+    );
+
+    content.innerHTML = `
+      <div style="
+        padding:35px 15px;
+        text-align:center;
+        color:#b91c1c;
+      ">
+
+        <div style="font-size:45px;">⚠️</div>
+
+        <h3>Menu Loading Error</h3>
+
+        <p style="
+          font-size:13px;
+          word-break:break-word;
+        ">
+          ${escapeHTML(error.message)}
+        </p>
+
+      </div>
+    `;
+  }
+}
+
+
+/* RENDER PRODUCTS */
+
+function renderFinalCustomerProducts(
+  products,
+  categories
+) {
+
+  const content =
+    document.getElementById("customerMenuContent");
+
+  if (!content) return;
+
+
+  if (!products.length) {
+
+    content.innerHTML = `
+      <div style="
+        padding:50px 20px;
+        text-align:center;
+        color:#777;
+      ">
+        <div style="font-size:50px;">🍽️</div>
+        <h3>No dishes available</h3>
+        <p>
+          Add an available product from Admin Panel.
+        </p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  const grouped = {};
+
+
+  products.forEach(product => {
+
+    const cat =
+      categories.find(
+        c => c.id === product.category_id
+      );
+
+    const name =
+      cat?.name || "Other";
+
+
+    if (!grouped[name]) {
+      grouped[name] = [];
+    }
+
+    grouped[name].push(product);
+
+  });
+
+
+  let html = "";
+
+
+  Object.entries(grouped)
+    .forEach(([categoryName, items]) => {
+
+      html += `
+        <div class="menu-category">
+
+          <div class="menu-category-title">
+            <h3>
+              🍽️ ${escapeHTML(categoryName)}
+            </h3>
+
+            <span>
+              ${items.length} items
+            </span>
+          </div>
+
+          ${items.map(product => {
+
+            let photo = null;
+
+            if (product.photo_url) {
+
+              if (
+                product.photo_url
+                  .startsWith("http")
+              ) {
+
+                photo =
+                  product.photo_url;
+
+              } else {
+
+                try {
+
+                  photo =
+                    supabaseClient
+                      .storage
+                      .from("product-images")
+                      .getPublicUrl(
+                        product.photo_url
+                      )
+                      .data
+                      .publicUrl;
+
+                } catch(e) {}
+
+              }
+
+            }
+
+
+            return `
+              <div class="menu-row">
+
+                <div
+                  class="menu-row-icon"
+                  style="overflow:hidden;"
+                >
+
+                  ${
+                    photo
+                    ? `
+                      <img
+                        src="${photo}"
+                        style="
+                          width:100%;
+                          height:100%;
+                          object-fit:cover;
+                          border-radius:12px;
+                        "
+                      >
+                    `
+                    : "🍽️"
+                  }
+
+                </div>
+
+
+                <div class="menu-row-info">
+
+                  <strong>
+                    ${escapeHTML(product.name)}
+                  </strong>
+
+                  <span>
+                    ${escapeHTML(
+                      product.description || ""
+                    )}
+                  </span>
+
+                  ${
+                    product.bestseller
+                    ? `
+                      <small style="
+                        color:#d97706;
+                        font-weight:700;
+                      ">
+                        Bestseller
+                      </small>
+                    `
+                    : ""
+                  }
+
+                </div>
+
+
+                <div class="menu-price">
+                  ₹${Number(product.price || 0)}
+                </div>
+
+
+                <button
+                  class="menu-add"
+                  onclick="addToCart(
+                    '${escapeJS(product.name)}',
+                    ${Number(product.price || 0)},
+                    this
+                  )"
+                >
+                  + Add
+                </button>
+
+              </div>
+            `;
+
+          }).join("")}
+
+        </div>
+      `;
+
+    });
+
+
+  content.innerHTML = html;
+}
+
+
+/* STOP ALL OLD FULL MENU CLICK HANDLERS */
+
+document.addEventListener(
+  "click",
+  function(event) {
+
+    const button =
+      event.target.closest(".view-menu");
+
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    window.openFullMenu();
+
+  },
+  true
+);
+
