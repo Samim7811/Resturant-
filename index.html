@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant | Good Food, Great Moments</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="header">
+  <a class="logo" href="#">
+    <span>🍽️</span>
+    <div>
+      <strong>Restaurant</strong>
+      <small>Good Food • Great Moments</small>
+    </div>
+  </a>
+
+  <nav>
+    <a href="#home" class="active">Home</a>
+    <a href="#menu">Menu</a>
+    <a href="#about">About</a>
+    <a href="#gallery">Gallery</a>
+    <a href="#contact">Contact</a>
+  </nav>
+
+  <a href="#booking" class="book-btn">Book a Table</a>
+</header>
+
+<main>
+
+<section id="home" class="hero">
+  <div class="hero-content">
+    <p class="eyebrow">WELCOME TO RESTAURANT</p>
+    <h1>Delicious Food,<br><span>Happier People</span></h1>
+    <p class="hero-text">
+      Fresh ingredients • Authentic taste • Memorable experience
+    </p>
+
+    <div class="hero-buttons">
+      <a href="#menu" class="primary-btn">Order Food →</a>
+      <a href="#booking" class="outline-btn">Book a Table</a>
+    </div>
+  </div>
+
+  <div class="hero-food">
+    <div class="food-circle">🍛</div>
+  </div>
+</section>
+
+<section class="quick-actions">
+
+  <a href="#menu" class="action-card orange">
+    <div class="action-icon">🍴</div>
+    <div>
+      <h3>Order Food</h3>
+      <p>For Home Delivery</p>
+    </div>
+    <b>→</b>
+  </a>
+
+  <a href="#qr" class="action-card green">
+    <div class="action-icon">📱</div>
+    <div>
+      <h3>Scan & Order</h3>
+      <p>Order From Your Table</p>
+    </div>
+    <b>→</b>
+  </a>
+
+  <a href="#booking" class="action-card pink">
+    <div class="action-icon">📅</div>
+    <div>
+      <h3>Book a Table</h3>
+      <p>Reserve Your Spot</p>
+    </div>
+    <b>→</b>
+  </a>
+
+</section>
+
+<section class="features">
+  <div>🌿<span>Fresh Ingredients</span></div>
+  <div>👨‍🍳<span>Expert Chefs</span></div>
+  <div>❤️<span>Hygienic Kitchen</span></div>
+  <div>👥<span>Great Ambience</span></div>
+  <div>⭐<span>Rated 4.8+</span></div>
+</section>
+
+<section id="menu" class="popular section">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow dark-text">OUR MENU</p>
+      <h2>Popular Dishes</h2>
+      <p>Our most loved dishes, always a great choice.</p>
+    </div>
+    <a href="#" class="view-menu">View Full Menu →</a>
+  </div>
+
+  <div class="food-grid">
+
+    <article class="food-card">
+      <div class="food-photo biryani">🍗</div>
+      <div class="food-info">
+        <span class="badge">Bestseller</span>
+        <div class="food-row">
+          <h3>Chicken Biryani</h3>
+          <b>₹220</b>
+        </div>
+        <p>Fragrant basmati rice with tender chicken & spices.</p>
+        <button onclick="addToCart('Chicken Biryani',220)">+ Add</button>
+      </div>
+    </article>
+
+    <article class="food-card">
+      <div class="food-photo curry">🍛</div>
+      <div class="food-info">
+        <div class="food-row">
+          <h3>Butter Chicken</h3>
+          <b>₹280</b>
+        </div>
+        <p>Rich creamy tomato gravy with tender chicken.</p>
+        <button onclick="addToCart('Butter Chicken',280)">+ Add</button>
+      </div>
+    </article>
+
+    <article class="food-card">
+      <div class="food-photo tikka">🍢</div>
+      <div class="food-info">
+        <div class="food-row">
+          <h3>Paneer Tikka</h3>
+          <b>₹240</b>
+        </div>
+        <p>Chargrilled paneer with peppers and spices.</p>
+        <button onclick="addToCart('Paneer Tikka',240)">+ Add</button>
+      </div>
+    </article>
+
+    <article class="food-card">
+      <div class="food-photo naan">🫓</div>
+      <div class="food-info">
+        <div class="food-row">
+          <h3>Garlic Naan</h3>
+          <b>₹60</b>
+        </div>
+        <p>Soft tandoori naan topped with fresh garlic.</p>
+        <button onclick="addToCart('Garlic Naan',60)">+ Add</button>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section id="qr" class="qr-section">
+  <div>
+    <p class="eyebrow">DINE IN EXPERIENCE</p>
+    <h2>Order From Your Table</h2>
+    <p>
+      Scan the QR code placed on your table, browse the menu
+      and order directly from your mobile. No waiting for a waiter.
+    </p>
+    <a href="#menu" class="primary-btn">Try Demo Order →</a>
+  </div>
+
+  <div class="qr-demo">
+    <div class="fake-qr">
+      <span>▦</span>
+    </div>
+    <strong>TABLE 07</strong>
+    <small>Scan • Order • Enjoy</small>
+  </div>
+</section>
+
+<section id="booking" class="booking section">
+  <div>
+    <p class="eyebrow dark-text">RESERVATION</p>
+    <h2>Book Your Table</h2>
+    <p>Reserve your favourite table before you arrive.</p>
+  </div>
+
+  <form onsubmit="bookTable(event)">
+    <input type="text" placeholder="Your Name" required>
+    <input type="tel" placeholder="Mobile Number" required>
+    <input type="date" required>
+    <input type="time" required>
+    <select required>
+      <option value="">Guests</option>
+      <option>2 Guests</option>
+      <option>3 Guests</option>
+      <option>4 Guests</option>
+      <option>5+ Guests</option>
+    </select>
+    <button class="primary-btn" type="submit">Confirm Reservation</button>
+  </form>
+</section>
+
+<section id="about" class="about section">
+  <div>
+    <p class="eyebrow dark-text">ABOUT US</p>
+    <h2>Good Food,<br><span>Good Mood</span></h2>
+    <p>
+      We believe great food brings people together. Our dishes are
+      prepared with fresh ingredients, authentic flavours and lots of care.
+    </p>
+    <a href="#" class="primary-btn">Know More →</a>
+  </div>
+
+  <div class="stats">
+    <div><strong>1000+</strong><span>Happy Customers</span></div>
+    <div><strong>50+</strong><span>Delicious Dishes</span></div>
+    <div><strong>4.8★</strong><span>Average Rating</span></div>
+  </div>
+</section>
+
+<section id="contact" class="contact">
+  <h2>Visit Us</h2>
+  <p>📍 Mumbai, Maharashtra</p>
+  <p>📞 +91 98765 43210</p>
+  <p>🕐 Open Daily • 11:00 AM – 11:00 PM</p>
+</section>
+
+</main>
+
+<div class="cart-bar">
+  🛒 <span id="cartText">0 items • ₹0</span>
+  <button onclick="showCart()">View Cart</button>
+</div>
+
+<footer>
+  <div class="logo">🍽️ <strong>Restaurant</strong></div>
+  <p>Good Food • Great Moments</p>
+  <p>© 2026 Restaurant. All rights reserved.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-client.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

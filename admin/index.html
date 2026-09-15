@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+<div id="loginPage" class="login-page">
+  <div class="login-card">
+    <div class="login-logo">🍽️</div>
+    <h1>Restaurant Admin</h1>
+    <p>Sign in to manage your restaurant</p>
+
+    <form id="loginForm">
+      <input id="email" type="email" placeholder="Admin Email" required>
+      <input id="password" type="password" placeholder="Password" required>
+
+      <button type="submit">Sign In</button>
+
+      <div id="loginMessage"></div>
+    </form>
+  </div>
+</div>
+
+
+<div id="adminApp" class="admin-app">
+
+  <aside class="sidebar">
+
+    <div class="brand">
+      <span>🍽️</span>
+      <div>
+        <strong id="sidebarRestaurantName">Restaurant</strong>
+        <small>Admin Panel</small>
+      </div>
+    </div>
+
+    <nav>
+      <button class="nav-item active" data-page="dashboard">
+        🏠 <span>Dashboard</span>
+      </button>
+
+      <button class="nav-item" data-page="orders">
+        📦 <span>Orders</span>
+      </button>
+
+      <button class="nav-item" data-page="categories">
+        📂 <span>Categories</span>
+      </button>
+
+      <button class="nav-item" data-page="products">
+        🍽️ <span>Products</span>
+      </button>
+
+      <button class="nav-item" data-page="tables">
+        🪑 <span>Tables & QR</span>
+      </button>
+
+      <button class="nav-item" data-page="reservations">
+        📅 <span>Reservations</span>
+      </button>
+
+      <button class="nav-item" data-page="delivery">
+        🚚 <span>Delivery</span>
+      </button>
+
+      <button class="nav-item" data-page="customers">
+        👥 <span>Customers</span>
+      </button>
+
+      <button class="nav-item" data-page="reports">
+        💰 <span>Sales & Reports</span>
+      </button>
+
+      <button class="nav-item" data-page="offers">
+        🎟️ <span>Offers</span>
+      </button>
+
+      <button class="nav-item" data-page="settings">
+        ⚙️ <span>Restaurant Settings</span>
+      </button>
+    </nav>
+
+    <button id="logoutBtn" class="logout-btn">
+      🚪 Logout
+    </button>
+
+  </aside>
+
+
+  <main class="main-content">
+
+    <header class="topbar">
+      <button id="mobileMenuBtn" class="mobile-menu">☰</button>
+
+      <div>
+        <h2 id="pageTitle">Dashboard</h2>
+        <p id="pageSubtitle">Restaurant overview</p>
+      </div>
+
+      <div class="admin-user">
+        <span>👤</span>
+        <div>
+          <strong id="adminEmail">Admin</strong>
+          <small>Administrator</small>
+        </div>
+      </div>
+    </header>
+
+
+    <section id="dashboardPage" class="page active">
+
+      <div class="stats-grid">
+
+        <div class="stat-card">
+          <span>💰</span>
+          <div>
+            <small>Today's Sales</small>
+            <h3 id="todaySales">₹0</h3>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span>📦</span>
+          <div>
+            <small>Today's Orders</small>
+            <h3 id="todayOrders">0</h3>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span>⏳</span>
+          <div>
+            <small>Pending Orders</small>
+            <h3 id="pendingOrders">0</h3>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span>📅</span>
+          <div>
+            <small>Reservations</small>
+            <h3 id="todayReservations">0</h3>
+          </div>
+        </div>
+
+      </div>
+
+
+      <div class="dashboard-grid">
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Recent Orders</h3>
+            <button class="small-btn" data-page="orders">View All</button>
+          </div>
+
+          <div id="recentOrders" class="empty-state">
+            No orders yet
+          </div>
+        </div>
+
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Quick Actions</h3>
+          </div>
+
+          <div class="quick-actions">
+            <button data-page="categories">➕ Add Category</button>
+            <button data-page="products">🍽️ Add Product</button>
+            <button data-page="tables">🪑 Add Table</button>
+            <button data-page="settings">⚙️ Settings</button>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <section id="ordersPage" class="page">
+      <div class="coming-page">
+        <div>📦</div>
+        <h2>Orders</h2>
+        <p>All dine-in and home delivery orders will appear here.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="categoriesPage" class="page">
+      <div class="coming-page">
+        <div>📂</div>
+        <h2>Categories & Sub-categories</h2>
+        <p>Add categories, sub-categories and manage them from here.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="productsPage" class="page">
+      <div class="coming-page">
+        <div>🍽️</div>
+        <h2>Products</h2>
+        <p>Food name, photo, price, availability and bestseller management.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="tablesPage" class="page">
+      <div class="coming-page">
+        <div>🪑</div>
+        <h2>Tables & QR</h2>
+        <p>Create tables and generate QR codes for table ordering.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="reservationsPage" class="page">
+      <div class="coming-page">
+        <div>📅</div>
+        <h2>Reservations</h2>
+        <p>Manage table reservations and booking status.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="deliveryPage" class="page">
+      <div class="coming-page">
+        <div>🚚</div>
+        <h2>Delivery</h2>
+        <p>Manage delivery charges, areas and delivery settings.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="customersPage" class="page">
+      <div class="coming-page">
+        <div>👥</div>
+        <h2>Customers</h2>
+        <p>View restaurant customer information and order history.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="reportsPage" class="page">
+      <div class="coming-page">
+        <div>💰</div>
+        <h2>Sales & Reports</h2>
+        <p>Total revenue, daily sales, monthly sales and best-selling items.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="offersPage" class="page">
+      <div class="coming-page">
+        <div>🎟️</div>
+        <h2>Offers & Coupons</h2>
+        <p>Create discounts and promotional offers.</p>
+        <span>Coming in the next step</span>
+      </div>
+    </section>
+
+
+    <section id="settingsPage" class="page">
+
+      <div class="settings-container">
+
+        <div class="settings-card">
+
+          <div class="section-heading">
+            <h3>🏪 Restaurant Information</h3>
+            <p>Change your restaurant information anytime.</p>
+          </div>
+
+          <form id="restaurantSettingsForm">
+
+            <div class="form-grid">
+
+              <div class="field">
+                <label>Restaurant Name</label>
+                <input id="restaurantName" type="text" placeholder="Restaurant Name">
+              </div>
+
+              <div class="field">
+                <label>Contact Number</label>
+                <input id="restaurantPhone" type="text" placeholder="+91">
+              </div>
+
+              <div class="field">
+                <label>Email</label>
+                <input id="restaurantEmail" type="email" placeholder="restaurant@example.com">
+              </div>
+
+              <div class="field">
+                <label>WhatsApp Number</label>
+                <input id="restaurantWhatsapp" type="text" placeholder="+91">
+              </div>
+
+              <div class="field full">
+                <label>Full Address</label>
+                <textarea id="restaurantAddress" placeholder="Full restaurant address"></textarea>
+              </div>
+
+              <div class="field">
+                <label>City</label>
+                <input id="restaurantCity" type="text">
+              </div>
+
+              <div class="field">
+                <label>State</label>
+                <input id="restaurantState" type="text">
+              </div>
+
+              <div class="field">
+                <label>Pincode</label>
+                <input id="restaurantPincode" type="text">
+              </div>
+
+              <div class="field">
+                <label>Google Maps Link</label>
+                <input id="restaurantMap" type="url" placeholder="Google Maps URL">
+              </div>
+
+              <div class="field">
+                <label>Opening Time</label>
+                <input id="openingTime" type="time">
+              </div>
+
+              <div class="field">
+                <label>Closing Time</label>
+                <input id="closingTime" type="time">
+              </div>
+
+            </div>
+
+
+            <div class="setting-divider"></div>
+
+            <div class="section-heading">
+              <h3>🚚 Delivery Settings</h3>
+              <p>Manage home delivery from here.</p>
+            </div>
+
+            <div class="form-grid">
+
+              <div class="field">
+                <label>Delivery Charge (₹)</label>
+                <input id="deliveryCharge" type="number" min="0" value="0">
+              </div>
+
+              <div class="field">
+                <label>Minimum Order (₹)</label>
+                <input id="minimumOrder" type="number" min="0" value="0">
+              </div>
+
+              <div class="field">
+                <label>Free Delivery Above (₹)</label>
+                <input id="freeDeliveryAbove" type="number" min="0" value="0">
+              </div>
+
+              <div class="field">
+                <label>Estimated Delivery</label>
+                <input id="deliveryTime" type="text" placeholder="30-45 min">
+              </div>
+
+              <div class="field">
+                <label>Delivery Available</label>
+                <select id="deliveryAvailable">
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Restaurant Status</label>
+                <select id="restaurantOpen">
+                  <option value="true">Open</option>
+                  <option value="false">Closed</option>
+                </select>
+              </div>
+
+            </div>
+
+
+            <button class="save-btn" type="submit">
+              💾 Save Changes
+            </button>
+
+            <div id="settingsMessage"></div>
+
+          </form>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="admin.js"></script>
+
+</body>
+</html>
