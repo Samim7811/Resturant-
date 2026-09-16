@@ -2554,3 +2554,55 @@ window.showMenuToast = showMenuToast;
 
 console.log("FINAL CART FIX LOADED");
 
+
+/* ===== SHOW ADDED QUANTITY ON PRODUCT BUTTON ===== */
+(function () {
+  const oldAddToCart = window.addToCart;
+
+  window.addToCart = function (name, price, button = null) {
+    price = Number(price) || 0;
+
+    const existing = cart.find(item => item.name === name);
+
+    if (existing) {
+      existing.quantity = (existing.quantity || 1) + 1;
+    } else {
+      cart.push({
+        name: name,
+        price: price,
+        quantity: 1
+      });
+    }
+
+    const item = cart.find(i => i.name === name);
+    const qty = item ? (item.quantity || 1) : 1;
+
+    updateCart();
+
+    /* Update clicked button */
+    if (button) {
+      button.innerHTML = qty + " Added";
+      button.classList.add("added");
+    }
+
+    /* Update Home page / other matching Add buttons */
+    document.querySelectorAll("button").forEach(btn => {
+      const onclick = btn.getAttribute("onclick") || "";
+
+      if (
+        onclick.includes("addToCart('" + name + "'") ||
+        onclick.includes('addToCart("' + name + '"')
+      ) {
+        btn.innerHTML = qty + " Added";
+        btn.classList.add("added");
+      }
+    });
+
+    showMenuToast(name + " added to your order");
+  };
+
+  window.addToCart = window.addToCart;
+})();
+
+console.log("ADDED QUANTITY BUTTON FIX LOADED");
+
