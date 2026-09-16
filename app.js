@@ -2475,3 +2475,82 @@ document.addEventListener(
   },
   true
 );
+
+/* ===== FINAL CART ADD FIX ===== */
+function addToCart(name, price, button = null) {
+  price = Number(price) || 0;
+
+  const existing = cart.find(item => item.name === name);
+
+  if (existing) {
+    existing.quantity = (existing.quantity || 1) + 1;
+  } else {
+    cart.push({
+      name: name,
+      price: price,
+      quantity: 1
+    });
+  }
+
+  updateCart();
+
+  if (button) {
+    button.innerHTML = "✓ Added";
+    button.classList.add("added");
+
+    setTimeout(() => {
+      button.innerHTML = "+ Add";
+      button.classList.remove("added");
+    }, 1200);
+  }
+
+  showMenuToast(name + " added to your order");
+}
+
+function updateCart() {
+  const totalItems = cart.reduce(
+    (sum, item) => sum + (item.quantity || 1),
+    0
+  );
+
+  const totalAmount = cart.reduce(
+    (sum, item) => sum + (Number(item.price) || 0) * (item.quantity || 1),
+    0
+  );
+
+  const cartText = document.getElementById("cartText");
+
+  if (cartText) {
+    cartText.textContent =
+      totalItems + " items • ₹" + totalAmount;
+  }
+
+  const cartCount = document.querySelector(".cart-count");
+  if (cartCount) {
+    cartCount.textContent = totalItems;
+  }
+}
+
+function showMenuToast(message) {
+  document.querySelector(".menu-toast")?.remove();
+
+  const toast = document.createElement("div");
+  toast.className = "menu-toast";
+  toast.innerHTML = "✓ " + message;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => toast.classList.add("show"), 20);
+
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 250);
+  }, 1800);
+}
+
+window.addToCart = addToCart;
+window.updateCart = updateCart;
+window.showMenuToast = showMenuToast;
+
+console.log("FINAL CART FIX LOADED");
+
