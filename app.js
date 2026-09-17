@@ -340,37 +340,72 @@ function showCart() {
 
 
 function increaseQuantity(index) {
+  if (!cart[index]) return;
 
-  cart[index].quantity += 1;
+  cart[index].quantity = (Number(cart[index].quantity) || 1) + 1;
+
+  try {
+    localStorage.setItem("restaurant_cart", JSON.stringify(cart));
+  } catch (e) {}
 
   updateCart();
-
-  showCart();
+  refreshCartModalInPlace();
 }
 
 
-function decreaseQuantity(index) {
+function refreshCartModalInPlace() {
+  const modal = document.querySelector(".cart-modal");
+  if (!modal) return;
 
-  if (cart[index].quantity > 1) {
-
-    cart[index].quantity -= 1;
-
-  } else {
-
-    cart.splice(index, 1);
-
+  const list = modal.querySelector(".cart-items-list");
+  if (list) {
+    list.innerHTML = cart.map((item, index) => `
+      <div class="cart-item">
+        <div class="cart-item-icon"></div>
+        <div class="cart-item-info">
+          <strong>${item.name}</strong>
+          <small>₹${item.price} each</small>
+          <div class="qty">
+            <button onclick="decreaseQuantity(${index})">−</button>
+            <b>${item.quantity || 1}</b>
+            <button onclick="increaseQuantity(${index})">+</button>
+          </div>
+        </div>
+        <strong>₹${(Number(item.price) || 0) * (Number(item.quantity) || 1)}</strong>
+      </div>
+    `).join("");
   }
+
+  const total = cart.reduce(
+    (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+    0
+  );
+
+  const totalValue = modal.querySelector(".summary-total span:last-child");
+  if (totalValue) {
+    totalValue.textContent = "₹" + total;
+  }
+}
+
+function decreaseQuantity(index) {
+  if (!cart[index]) return;
+
+  if ((Number(cart[index].quantity) || 1) > 1) {
+    cart[index].quantity -= 1;
+  } else {
+    cart.splice(index, 1);
+  }
+
+  try {
+    localStorage.setItem("restaurant_cart", JSON.stringify(cart));
+  } catch (e) {}
 
   updateCart();
 
   if (cart.length > 0) {
-
-    showCart();
-
+    refreshCartModalInPlace();
   } else {
-
     document.querySelector(".cart-modal")?.remove();
-
   }
 }
 
