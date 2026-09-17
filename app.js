@@ -2113,8 +2113,9 @@ window.openFullMenu = async function () {
 
 async function loadFinalCustomerMenu() {
 
-  const content =
-    document.getElementById("customerMenuContent");
+  const content = document.getElementById("customerMenuContent");
+
+  if (!content) return;
 
   try {
 
@@ -2122,29 +2123,15 @@ async function loadFinalCustomerMenu() {
       throw new Error("Supabase client is not loaded");
     }
 
+    /* Load categories + products at the same time */
+    const [catResult, productResult] = await Promise.all([
 
-    /* GET CATEGORIES */
-
-    const catResult =
-      await supabaseClient
+      supabaseClient
         .from("categories")
         .select("id,name,parent_id")
-        .order("name");
+        .order("name"),
 
-    if (catResult.error) {
-      throw new Error(
-        "Categories: " + catResult.error.message
-      );
-    }
-
-
-    const categories = catResult.data || [];
-
-
-    /* GET PRODUCTS */
-
-    const productResult =
-      await supabaseClient
+      supabaseClient
         .from("products")
         .select(`
           id,
@@ -2157,119 +2144,106 @@ async function loadFinalCustomerMenu() {
           category_id
         `)
         .eq("available", true)
-        .order("created_at", {
-          ascending: false
-        });
+        .order("created_at", { ascending: false })
 
+    ]);
 
-    if (productResult.error) {
-      throw new Error(
-        "Products: " + productResult.error.message
-      );
+    if (catResult.error) {
+      throw new Error("Categories: " + catResult.error.message);
     }
 
+    if (productResult.error) {
+      throw new Error("Products: " + productResult.error.message);
+    }
 
+    const categories = catResult.data || [];
     const products = productResult.data || [];
 
-
-    console.log(
-      "CUSTOMER MENU CATEGORIES:",
-      categories
-    );
-
-    console.log(
-      "CUSTOMER MENU PRODUCTS:",
-      products
-    );
-
-
-    /* TABS */
-
-    const tabs =
-      document.getElementById("customerMenuTabs");
-
-    const parentCategories =
-      categories.filter(c => !c.parent_id);
-
-
-    parentCategories.forEach(category => {
-
-      const btn =
-        document.createElement("button");
-
-      btn.className = "menu-tab";
-
-      btn.textContent = category.name;
-
-      btn.onclick = function () {
-
-        document
-          .querySelectorAll(
-            "#customerMenuTabs .menu-tab"
-          )
-          .forEach(x =>
-            x.classList.remove("active")
-          );
-
-        btn.classList.add("active");
-
-        renderFinalCustomerProducts(
-          products.filter(p =>
-            p.category_id === category.id ||
-            categories.some(
-              sub =>
-                sub.id === p.category_id &&
-                sub.parent_id === category.id
-            )
-          ),
-          categories
-        );
-      };
-
-      tabs.appendChild(btn);
-
+    console.log("FAST CUSTOMER MENU:", {
+      categories: categories.length,
+      products: products.length
     });
 
+    /* Create category tabs */
+    const tabs = document.getElementById("customerMenuTabs");
 
-    renderFinalCustomerProducts(
-      products,
-      categories
-    );
+    if (tabs) {
 
+      tabs.innerHTML = `<button class="menu-tab active">All</button>`;
 
-    /* SEARCH */
+      const parentCategories = categories.filter(function (c) {
+        return !c.parent_id;
+      });
 
-    document
-      .getElementById("customerMenuSearch")
-      ?.addEventListener(
-        "input",
-        function () {
+      parentCategories.forEach(function (category) {
 
-          const q =
-            this.value.toLowerCase().trim();
+        const btn = document.createElement("button");
 
-          const filtered =
-            products.filter(p =>
-              String(p.name || "")
-                .toLowerCase()
-                .includes(q)
+        btn.className = "menu-tab";
+        btn.textContent = category.name;
+
+        btn.onclick = function () {
+
+          document
+            .querySelectorAll("#customerMenuTabs .menu-tab")
+            .forEach(function (x) {
+              x.classList.remove("active");
+            });
+
+          btn.classList.add("active");
+
+          const filtered = products.filter(function (p) {
+
+            return (
+              p.category_id === category.id ||
+              categories.some(function (sub) {
+                return (
+                  sub.id === p.category_id &&
+                  sub.parent_id === category.id
+                );
+              })
             );
 
-          renderFinalCustomerProducts(
-            filtered,
-            categories
-          );
+          });
 
-        }
-      );
+          renderFinalCustomerProducts(filtered, categories);
+        };
 
+        tabs.appendChild(btn);
+
+      });
+    }
+
+    /* Render all products immediately */
+    renderFinalCustomerProducts(products, categories);
+
+    /* Search */
+    const search = document.getElementById("customerMenuSearch");
+
+    if (search && !search.dataset.fastMenuReady) {
+
+      search.dataset.fastMenuReady = "true";
+
+      search.addEventListener("input", function () {
+
+        const q = this.value.toLowerCase().trim();
+
+        const filtered = q
+          ? products.filter(function (p) {
+              return String(p.name || "")
+                .toLowerCase()
+                .includes(q);
+            })
+          : products;
+
+        renderFinalCustomerProducts(filtered, categories);
+
+      });
+    }
 
   } catch (error) {
 
-    console.error(
-      "CUSTOMER MENU ERROR:",
-      error
-    );
+    console.error("FAST CUSTOMER MENU ERROR:", error);
 
     content.innerHTML = `
       <div style="
@@ -2277,18 +2251,16 @@ async function loadFinalCustomerMenu() {
         text-align:center;
         color:#b91c1c;
       ">
-
         <div style="font-size:45px;">⚠️</div>
-
         <h3>Menu Loading Error</h3>
-
         <p style="
           font-size:13px;
           word-break:break-word;
         ">
-          ${escapeHTML(error.message)}
+          ${typeof escapeHTML === "function"
+            ? escapeHTML(error.message)
+            : error.message}
         </p>
-
       </div>
     `;
   }
