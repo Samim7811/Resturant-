@@ -2555,54 +2555,181 @@ window.showMenuToast = showMenuToast;
 console.log("FINAL CART FIX LOADED");
 
 
-/* ===== SHOW ADDED QUANTITY ON PRODUCT BUTTON ===== */
-(function () {
-  const oldAddToCart = window.addToCart;
 
-  window.addToCart = function (name, price, button = null) {
+/* ===== CLEAN FINAL ADD BUTTON + QUANTITY BOX ===== */
+(function () {
+
+  function saveCartData() {
+    try {
+      localStorage.setItem("restaurant_cart", JSON.stringify(cart));
+    } catch (e) {}
+  }
+
+  function getQty(name) {
+    const item = cart.find(i => i.name === name);
+    return item ? (Number(item.quantity) || 1) : 0;
+  }
+
+  function refreshAddBoxes() {
+    document.querySelectorAll("button").forEach(function (btn) {
+
+      const onclick = btn.getAttribute("onclick") || "";
+      const match = onclick.match(/addToCart\(['"](.+?)['"]/);
+
+      if (!match) return;
+
+      const name = match[1];
+      const qty = getQty(name);
+      const parent = btn.parentElement;
+
+      if (!parent) return;
+
+      /* Remove/hide any old +/- quantity control */
+      parent.querySelectorAll(".item-qty-control").forEach(function (old) {
+        old.remove();
+      });
+
+      let box = parent.querySelector(".item-added-count");
+
+      if (qty > 0) {
+
+        if (!box) {
+          box = document.createElement("span");
+          box.className = "item-added-count";
+          btn.parentElement.insertBefore(box, btn);
+        }
+
+        box.textContent = qty;
+        box.style.display = "inline-flex";
+
+      } else if (box) {
+
+        box.remove();
+
+      }
+
+      btn.textContent = "+ Add";
+      btn.classList.remove("added");
+    });
+  }
+
+  /* Final Add function */
+  window.addToCart = function (name, price, button) {
+
     price = Number(price) || 0;
 
-    const existing = cart.find(item => item.name === name);
+    const existing = cart.find(function (item) {
+      return item.name === name;
+    });
 
     if (existing) {
-      existing.quantity = (existing.quantity || 1) + 1;
+
+      existing.quantity = (Number(existing.quantity) || 1) + 1;
+
     } else {
+
       cart.push({
         name: name,
         price: price,
         quantity: 1
       });
+
     }
 
-    const item = cart.find(i => i.name === name);
-    const qty = item ? (item.quantity || 1) : 1;
+    saveCartData();
 
-    updateCart();
-
-    /* Update clicked button */
-    if (button) {
-      button.innerHTML = qty + " Added";
-      button.classList.add("added");
+    if (typeof updateCart === "function") {
+      updateCart();
     }
 
-    /* Update Home page / other matching Add buttons */
-    document.querySelectorAll("button").forEach(btn => {
-      const onclick = btn.getAttribute("onclick") || "";
+    refreshAddBoxes();
 
-      if (
-        onclick.includes("addToCart('" + name + "'") ||
-        onclick.includes('addToCart("' + name + '"')
-      ) {
-        btn.innerHTML = qty + " Added";
-        btn.classList.add("added");
-      }
-    });
-
-    showMenuToast(name + " added to your order");
+    if (typeof showMenuToast === "function") {
+      showMenuToast(name + " added to your order");
+    }
   };
 
-  window.addToCart = window.addToCart;
+  /* Restore cart after refresh */
+  try {
+
+    const saved = localStorage.getItem("restaurant_cart");
+
+    if (saved) {
+
+      const savedCart = JSON.parse(saved);
+
+      if (Array.isArray(savedCart)) {
+
+        cart.length = 0;
+
+        savedCart.forEach(function (item) {
+
+          cart.push({
+            name: item.name,
+            price: Number(item.price) || 0,
+            quantity: Number(item.quantity) || 1
+          });
+
+        });
+      }
+    }
+
+  } catch (e) {}
+
+  /* Final quantity-box design */
+  const style = document.createElement("style");
+
+  style.textContent = `
+    .item-qty-control {
+      display: none !important;
+    }
+
+    .item-added-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 7px;
+      margin-right: 7px;
+      border: 1px solid currentColor;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      vertical-align: middle;
+    }
+
+    .menu-add {
+      white-space: nowrap;
+    }
+  `;
+
+  document.head.appendChild(style);
+
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(refreshAddBoxes, 300);
+    setTimeout(refreshAddBoxes, 1000);
+  });
+
+  /* Refresh when Full Menu/Home dynamically creates buttons */
+  const observer = new MutationObserver(function () {
+    clearTimeout(window.__cleanAddBoxTimer);
+
+    window.__cleanAddBoxTimer = setTimeout(function () {
+      refreshAddBoxes();
+    }, 150);
+  });
+
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  window.refreshAddBoxes = refreshAddBoxes;
+
+  console.log("CLEAN FINAL ADD BOX LOADED");
+
 })();
-
-console.log("ADDED QUANTITY BUTTON FIX LOADED");
-
