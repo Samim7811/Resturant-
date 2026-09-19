@@ -577,6 +577,7 @@ async function loadOrders(){
   <option value="confirmed" ${order.status === "confirmed" ? "selected" : ""}>Confirmed</option>
   <option value="preparing" ${order.status === "preparing" ? "selected" : ""}>Preparing</option>
   <option value="ready" ${order.status === "ready" ? "selected" : ""}>Ready</option>
+  <option value="served" ${order.status === "served" ? "selected" : ""}>Served</option>
 </select>
           </div>
 
@@ -634,7 +635,19 @@ async function loadOrders(){
 }
 
 async function updateOrderStatus(newStatus, orderId) {
+  const select = document.querySelector(
+    `select[onchange*="${orderId}"]`
+  );
+
   if (!newStatus || !orderId) return;
+
+  const previousStatus = select ? select.dataset.previousStatus || "pending" : "pending";
+
+  if (select) {
+    select.dataset.previousStatus = newStatus;
+    select.disabled = true;
+    select.style.opacity = "0.6";
+  }
 
   try {
     const { error } = await supabaseClient
@@ -648,13 +661,27 @@ async function updateOrderStatus(newStatus, orderId) {
 
     if (error) throw error;
 
-    await loadOrders();
-    await loadDashboard();
+    if (select) {
+      select.disabled = false;
+      select.style.opacity = "1";
+    }
+
+    console.log("ORDER STATUS UPDATED:", orderId, newStatus);
 
   } catch (error) {
     console.error("UPDATE ORDER STATUS ERROR:", error);
-    alert("❌ Could not update order status.\n\n" + (error.message || "Unknown error"));
-    await loadOrders();
+
+    if (select) {
+      select.value = previousStatus;
+      select.disabled = false;
+      select.style.opacity = "1";
+      select.dataset.previousStatus = previousStatus;
+    }
+
+    alert(
+      "❌ Could not update order status.\n\n" +
+      (error.message || "Unknown error")
+    );
   }
 }
 
