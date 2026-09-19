@@ -98,58 +98,12 @@
     <a href="#" class="view-menu">View Full Menu →</a>
   </div>
 
-  <div class="food-grid">
-
-    <article class="food-card">
-      <div class="food-photo biryani">🍗</div>
-      <div class="food-info">
-        <span class="badge">Bestseller</span>
-        <div class="food-row">
-          <h3>Chicken Biryani</h3>
-          <b>₹220</b>
-        </div>
-        <p>Fragrant basmati rice with tender chicken & spices.</p>
-        <button onclick="addToCart('Chicken Biryani',220)">+ Add</button>
-      </div>
-    </article>
-
-    <article class="food-card">
-      <div class="food-photo curry">🍛</div>
-      <div class="food-info">
-        <div class="food-row">
-          <h3>Butter Chicken</h3>
-          <b>₹280</b>
-        </div>
-        <p>Rich creamy tomato gravy with tender chicken.</p>
-        <button onclick="addToCart('Butter Chicken',280)">+ Add</button>
-      </div>
-    </article>
-
-    <article class="food-card">
-      <div class="food-photo tikka">🍢</div>
-      <div class="food-info">
-        <div class="food-row">
-          <h3>Paneer Tikka</h3>
-          <b>₹240</b>
-        </div>
-        <p>Chargrilled paneer with peppers and spices.</p>
-        <button onclick="addToCart('Paneer Tikka',240)">+ Add</button>
-      </div>
-    </article>
-
-    <article class="food-card">
-      <div class="food-photo naan">🫓</div>
-      <div class="food-info">
-        <div class="food-row">
-          <h3>Garlic Naan</h3>
-          <b>₹60</b>
-        </div>
-        <p>Soft tandoori naan topped with fresh garlic.</p>
-        <button onclick="addToCart('Garlic Naan',60)">+ Add</button>
-      </div>
-    </article>
-
+  <div class="food-grid" id="popularDishesGrid">
+  <div style="grid-column:1/-1;text-align:center;padding:40px 20px;">
+    <div style="font-size:40px;">🍽️</div>
+    <p>Loading popular dishes...</p>
   </div>
+</div>
 </section>
 
 <section id="qr" class="qr-section">

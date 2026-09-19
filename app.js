@@ -2740,3 +2740,74 @@ console.log("FINAL CART FIX LOADED");
   console.log("CLEAN FINAL ADD BOX LOADED");
 
 })();
+
+
+// SUPABASE POPULAR DISHES
+async function loadPopularDishes() {
+  const grid = document.getElementById("popularDishesGrid");
+  if (!grid || typeof supabaseClient === "undefined") return;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("products")
+      .select("id,name,price,description,photo_url,available,bestseller")
+      .eq("available", true)
+      .eq("bestseller", true)
+      .order("created_at", { ascending: false })
+      .limit(4);
+
+    if (error) {
+      console.error("Popular dishes error:", error);
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:30px;">
+          <p>Popular dishes could not be loaded.</p>
+        </div>`;
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:30px;">
+          <p>No popular dishes selected yet.</p>
+          <small>Admin Panel → Products → turn Bestseller ON.</small>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = data.map(item => {
+      const image = item.photo_url
+        ? `<img src="${item.photo_url}" alt="${item.name}" style="width:100%;height:100%;object-fit:cover;">`
+        : `<div style="font-size:70px;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">🍽️</div>`;
+
+      const description = item.description || "Delicious food prepared fresh for you.";
+
+      return `
+        <article class="food-card">
+          <div class="food-photo" style="overflow:hidden;">
+            ${image}
+          </div>
+
+          <div class="food-info">
+            <span class="badge">Bestseller</span>
+
+            <div class="food-row">
+              <h3>${item.name}</h3>
+              <b>₹${item.price}</b>
+            </div>
+
+            <p>${description}</p>
+
+            <button onclick="addToCart('${String(item.name).replace(/'/g, "\\'")}',${Number(item.price)})">
+              + Add
+            </button>
+          </div>
+        </article>
+      `;
+    }).join("");
+
+  } catch (err) {
+    console.error("Popular dishes crashed:", err);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", loadPopularDishes);
