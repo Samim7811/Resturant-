@@ -1589,9 +1589,352 @@ function escapeReservationText(value){
 
 /* END RESERVATION SYSTEM V1 */
 
+
+/* =========================================================
+   TABLES MANAGEMENT V1
+   Supabase restaurant_tables connection
+   ========================================================= */
+
+let restaurantTablesCache = [];
+
+async function loadTables(){
+  const loading = document.getElementById("tablesLoading");
+  const grid = document.getElementById("tablesGrid");
+
+  if(!loading || !grid) return;
+
+  loading.style.display = "block";
+  grid.innerHTML = "";
+
+  if(!currentRestaurant?.id){
+    loading.textContent = "Restaurant information not available.";
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("restaurant_tables")
+      .select("*")
+      .eq("restaurant_id", currentRestaurant.id)
+      .order("table_number", { ascending: true });
+
+    if(error) throw error;
+
+    restaurantTablesCache = data || [];
+
+    updateTableSummary();
+    renderTables();
+
+    loading.style.display = "none";
+
+  } catch(error) {
+    console.error("LOAD TABLES ERROR:", error);
+
+    loading.style.display = "none";
+
+    grid.innerHTML = `
+      <div class="coming-page">
+        <div>⚠️</div>
+        <h2>Could not load tables</h2>
+        <p>${escapeTableText(error.message || "Unknown error")}</p>
+      </div>
+    `;
+  }
+}
+
+function updateTableSummary(){
+
+  const total = restaurantTablesCache.length;
+
+  const available = restaurantTablesCache.filter(
+    table => (table.status || "available") === "available"
+  ).length;
+
+  const unavailable = total - available;
+
+  const totalEl = document.getElementById("tablesTotalCount");
+  const availableEl = document.getElementById("tablesAvailableCount");
+  const unavailableEl = document.getElementById("tablesUnavailableCount");
+
+  if(totalEl) totalEl.textContent = total;
+  if(availableEl) availableEl.textContent = available;
+  if(unavailableEl) unavailableEl.textContent = unavailable;
+}
+
+function renderTables(){
+
+  const grid = document.getElementById("tablesGrid");
+
+  if(!grid) return;
+
+  if(!restaurantTablesCache.length){
+
+    grid.innerHTML = `
+      <div class="coming-page">
+        <div>🪑</div>
+        <h2>No Tables Added</h2>
+        <p>Click "+ Add Table" to create your first restaurant table.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  grid.innerHTML = restaurantTablesCache.map(table => {
+
+    const number = escapeTableText(table.table_number || "");
+    const capacity = Number(table.capacity || 2);
+    const type = escapeTableText(table.table_type || "normal");
+    const status = table.status || "available";
+
+    const qrToken = table.qr_token || "";
+
+    return `
+      <div class="restaurant-table-card">
+
+        <div class="table-card-top">
+
+          <div class="table-number">
+            TABLE ${number}
+          </div>
+
+          <span class="table-status ${status === "available" ? "available" : "unavailable"}">
+            ${status === "available" ? "Available" : "Unavailable"}
+          </span>
+
+        </div>
+
+        <div class="table-card-icon">
+          🪑
+        </div>
+
+        <div class="table-card-info">
+
+          <div>
+            <strong>Capacity</strong>
+            <span>${capacity} Guests</span>
+          </div>
+
+          <div>
+            <strong>Type</strong>
+            <span>${type}</span>
+          </div>
+
+        </div>
+
+        <div class="table-qr-box">
+
+          ${
+            qrToken
+              ? `<div class="table-qr-token">QR: ${escapeTableText(qrToken)}</div>`
+              : `<div class="table-qr-token">QR Token unavailable</div>`
+          }
+
+        </div>
+
+        <div class="table-card-actions">
+
+          <button
+            class="table-edit-btn"
+            onclick="editRestaurantTable('${table.id}')">
+            ✏️ Edit
+          </button>
+
+          <button
+            class="table-delete-btn"
+            onclick="deleteRestaurantTable('${table.id}')">
+            🗑️ Delete
+          </button>
+
+        </div>
+
+      </div>
+    `;
+
+  }).join("");
+}
+
+function openTableForm(tableId = ""){
+
+  const box = document.getElementById("tableFormBox");
+
+  if(!box) return;
+
+  const title = document.getElementById("tableFormTitle");
+  const editId = document.getElementById("editTableId");
+  const number = document.getElementById("tableNumberInput");
+  const capacity = document.getElementById("tableCapacityInput");
+  const type = document.getElementById("tableTypeInput");
+  const status = document.getElementById("tableStatusInput");
+
+  if(!tableId){
+
+    if(title) title.textContent = "Add Table";
+    if(editId) editId.value = "";
+    if(number) number.value = "";
+    if(capacity) capacity.value = "2";
+    if(type) type.value = "normal";
+    if(status) status.value = "available";
+
+  } else {
+
+    const table = restaurantTablesCache.find(
+      item => String(item.id) === String(tableId)
+    );
+
+    if(!table) return;
+
+    if(title) title.textContent = "Edit Table";
+    if(editId) editId.value = table.id;
+    if(number) number.value = table.table_number || "";
+    if(capacity) capacity.value = table.capacity || 2;
+    if(type) type.value = table.table_type || "normal";
+    if(status) status.value = table.status || "available";
+  }
+
+  box.style.display = "block";
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeTableForm(){
+
+  const box = document.getElementById("tableFormBox");
+
+  if(box) box.style.display = "none";
+}
+
+async function saveRestaurantTable(){
+
+  if(!currentRestaurant?.id){
+    alert("Restaurant information not available.");
+    return;
+  }
+
+  const editId =
+    document.getElementById("editTableId")?.value.trim();
+
+  const tableNumber =
+    document.getElementById("tableNumberInput")?.value.trim();
+
+  const capacity =
+    Number(document.getElementById("tableCapacityInput")?.value || 0);
+
+  const tableType =
+    document.getElementById("tableTypeInput")?.value || "normal";
+
+  const status =
+    document.getElementById("tableStatusInput")?.value || "available";
+
+  if(!tableNumber){
+    alert("Please enter table number.");
+    return;
+  }
+
+  if(!capacity || capacity < 1){
+    alert("Please enter a valid capacity.");
+    return;
+  }
+
+  const payload = {
+    restaurant_id: currentRestaurant.id,
+    table_number: tableNumber,
+    capacity: capacity,
+    table_type: tableType,
+    status: status
+  };
+
+  try {
+
+    let result;
+
+    if(editId){
+
+      result = await supabaseClient
+        .from("restaurant_tables")
+        .update(payload)
+        .eq("id", editId)
+        .eq("restaurant_id", currentRestaurant.id);
+
+    } else {
+
+      result = await supabaseClient
+        .from("restaurant_tables")
+        .insert(payload);
+    }
+
+    if(result.error) throw result.error;
+
+    alert(editId ? "✅ Table updated successfully." : "✅ Table added successfully.");
+
+    closeTableForm();
+
+    await loadTables();
+
+  } catch(error){
+
+    console.error("SAVE TABLE ERROR:", error);
+
+    alert(
+      "❌ Could not save table.\n\n" +
+      (error.message || "Unknown error")
+    );
+  }
+}
+
+function editRestaurantTable(tableId){
+
+  openTableForm(tableId);
+}
+
+async function deleteRestaurantTable(tableId){
+
+  if(!confirm("Delete this table?")) return;
+
+  try {
+
+    const { error } = await supabaseClient
+      .from("restaurant_tables")
+      .delete()
+      .eq("id", tableId)
+      .eq("restaurant_id", currentRestaurant.id);
+
+    if(error) throw error;
+
+    alert("✅ Table deleted.");
+
+    await loadTables();
+
+  } catch(error){
+
+    console.error("DELETE TABLE ERROR:", error);
+
+    alert(
+      "❌ Could not delete table.\n\n" +
+      (error.message || "Unknown error")
+    );
+  }
+}
+
+function escapeTableText(value){
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/* END TABLES MANAGEMENT V1 */
+
+
 function openPage(page){
   if (page === "orders") {
     loadOrders();
+  }
+
+  if (page === "tables") {
+    loadTables();
   }
 
   if (page === "reservations") {

@@ -321,13 +321,109 @@
 
 
     <section id="tablesPage" class="page">
-      <div class="coming-page">
-        <div>🪑</div>
+
+  <div class="tables-container">
+
+    <div class="tables-header">
+      <div>
         <h2>Tables & QR</h2>
-        <p>Create tables and generate QR codes for table ordering.</p>
-        <span>Coming in the next step</span>
+        <p>Create and manage restaurant tables.</p>
       </div>
-    </section>
+      <button class="tables-add-btn" onclick="openTableForm()">
+        + Add Table
+      </button>
+    </div>
+
+    <div class="tables-summary">
+
+      <div class="table-summary-card">
+        <span>🪑</span>
+        <div>
+          <strong id="tablesTotalCount">0</strong>
+          <small>Total Tables</small>
+        </div>
+      </div>
+
+      <div class="table-summary-card">
+        <span>🟢</span>
+        <div>
+          <strong id="tablesAvailableCount">0</strong>
+          <small>Available</small>
+        </div>
+      </div>
+
+      <div class="table-summary-card">
+        <span>🔴</span>
+        <div>
+          <strong id="tablesUnavailableCount">0</strong>
+          <small>Unavailable</small>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="tableFormBox" class="table-form-box" style="display:none;">
+
+      <h3 id="tableFormTitle">Add Table</h3>
+
+      <input type="hidden" id="editTableId">
+
+      <div class="table-form-grid">
+
+        <label>
+          Table Number
+          <input id="tableNumberInput" type="text" placeholder="01">
+        </label>
+
+        <label>
+          Capacity
+          <input id="tableCapacityInput" type="number" min="1" max="50" value="2">
+        </label>
+
+        <label>
+          Table Type
+          <select id="tableTypeInput">
+            <option value="normal">Normal</option>
+            <option value="couple">Couple</option>
+            <option value="family">Family</option>
+            <option value="vip">VIP</option>
+            <option value="outdoor">Outdoor</option>
+          </select>
+        </label>
+
+        <label>
+          Status
+          <select id="tableStatusInput">
+            <option value="available">Available</option>
+            <option value="unavailable">Unavailable</option>
+          </select>
+        </label>
+
+      </div>
+
+      <div class="table-form-actions">
+
+        <button class="table-cancel-btn" onclick="closeTableForm()">
+          Cancel
+        </button>
+
+        <button class="table-save-btn" onclick="saveRestaurantTable()">
+          Save Table
+        </button>
+
+      </div>
+
+    </div>
+
+    <div id="tablesLoading" class="tables-loading">
+      ⏳ Loading tables...
+    </div>
+
+    <div id="tablesGrid" class="tables-grid"></div>
+
+  </div>
+
+</section>
 
 
     <section id="reservationsPage" class="page">
