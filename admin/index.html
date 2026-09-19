@@ -331,13 +331,102 @@
 
 
     <section id="reservationsPage" class="page">
-      <div class="coming-page">
-        <div>📅</div>
+
+  <div class="reservations-container">
+
+    <div class="reservations-header">
+      <div>
         <h2>Reservations</h2>
-        <p>Manage table reservations and booking status.</p>
-        <span>Coming in the next step</span>
+        <p>Manage table reservations and booking status</p>
       </div>
-    </section>
+
+      <button class="reservations-refresh-btn" onclick="loadReservations()">
+        ↻ Refresh
+      </button>
+    </div>
+
+    <div class="reservation-stats">
+      <div class="reservation-stat-card">
+        <span>📅</span>
+        <div>
+          <strong id="reservationTotalCount">0</strong>
+          <small>Total Today</small>
+        </div>
+      </div>
+
+      <div class="reservation-stat-card">
+        <span>⏳</span>
+        <div>
+          <strong id="reservationPendingCount">0</strong>
+          <small>Pending</small>
+        </div>
+      </div>
+
+      <div class="reservation-stat-card">
+        <span>✅</span>
+        <div>
+          <strong id="reservationConfirmedCount">0</strong>
+          <small>Confirmed</small>
+        </div>
+      </div>
+
+      <div class="reservation-stat-card">
+        <span>❌</span>
+        <div>
+          <strong id="reservationCancelledCount">0</strong>
+          <small>Cancelled</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="reservation-toolbar">
+
+      <div class="reservation-search">
+        🔍
+        <input
+          id="reservationSearchInput"
+          type="search"
+          placeholder="Search customer, phone or table..."
+          autocomplete="off"
+        >
+      </div>
+
+      <select id="reservationStatusFilter">
+        <option value="all">All Status</option>
+        <option value="pending">Pending</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="completed">Completed</option>
+      </select>
+
+      <input
+        id="reservationDateFilter"
+        type="date"
+      >
+
+    </div>
+
+    <div class="reservations-list-header">
+      <div>
+        <h3>Reservation List</h3>
+        <p>Customer bookings for the selected date</p>
+      </div>
+
+      <span id="reservationVisibleCount">0 Reservations</span>
+    </div>
+
+    <div
+      id="reservationsLoading"
+      style="padding:30px;text-align:center;color:#777;"
+    >
+      ⏳ Loading reservations...
+    </div>
+
+    <div id="reservationsList"></div>
+
+  </div>
+
+</section>
 
 
     <section id="deliveryPage" class="page">

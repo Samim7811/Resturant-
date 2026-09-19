@@ -1203,9 +1203,399 @@ async function updateOrderStatus(newStatus, orderId){
 
 /* END ORDERS FUNCTION V2 SAFE */
 
+
+/* RESERVATION SYSTEM V1 */
+
+let reservationsCache = [];
+let activeReservationStatus = "all";
+
+async function loadReservations(){
+  const loading = document.getElementById("reservationsLoading");
+  const list = document.getElementById("reservationsList");
+
+  if(!loading || !list) return;
+
+  loading.style.display = "block";
+  list.innerHTML = "";
+
+  if(!currentRestaurant?.id){
+    loading.textContent = "Restaurant information not available.";
+    return;
+  }
+
+  const dateInput = document.getElementById("reservationDateFilter");
+
+  if(dateInput && !dateInput.value){
+    dateInput.value = new Date().toISOString().split("T")[0];
+  }
+
+  try{
+    const { data: reservations, error } =
+      await supabaseClient
+        .from("reservations")
+        .select("*")
+        .eq("restaurant_id", currentRestaurant.id)
+        .order("reservation_date", { ascending:true })
+        .order("reservation_time", { ascending:true });
+
+    if(error) throw error;
+
+    reservationsCache = reservations || [];
+
+    const tableIds = reservationsCache
+      .map(r => r.table_id)
+      .filter(Boolean);
+
+    let tables = [];
+
+    if(tableIds.length){
+      const { data: tableData, error: tableError } =
+        await supabaseClient
+          .from("restaurant_tables")
+          .select("id,table_number,capacity,table_type")
+          .in("id", tableIds);
+
+      if(tableError) throw tableError;
+      tables = tableData || [];
+    }
+
+    const tableMap = {};
+    tables.forEach(t => {
+      tableMap[t.id] = t;
+    });
+
+    window.reservationTableMap = tableMap;
+
+    setupReservationFilters();
+    updateReservationCounts();
+    renderReservations();
+
+  }catch(error){
+    console.error("LOAD RESERVATIONS ERROR:", error);
+
+    loading.style.display = "none";
+
+    list.innerHTML = `
+      <div class="coming-page">
+        <div>⚠️</div>
+        <h2>Could not load reservations</h2>
+        <p>${escapeReservationText(error.message || "Unknown error")}</p>
+      </div>
+    `;
+
+    return;
+  }
+}
+
+function setupReservationFilters(){
+
+  const search = document.getElementById("reservationSearchInput");
+  const status = document.getElementById("reservationStatusFilter");
+  const date = document.getElementById("reservationDateFilter");
+
+  if(search && !search.dataset.bound){
+    search.dataset.bound = "1";
+    search.addEventListener("input", renderReservations);
+  }
+
+  if(status && !status.dataset.bound){
+    status.dataset.bound = "1";
+
+    status.addEventListener("change", function(){
+      activeReservationStatus = this.value;
+      renderReservations();
+    });
+  }
+
+  if(date && !date.dataset.bound){
+    date.dataset.bound = "1";
+    date.addEventListener("change", renderReservations);
+  }
+}
+
+function updateReservationCounts(){
+
+  const dateInput = document.getElementById("reservationDateFilter");
+  const selectedDate =
+    dateInput?.value ||
+    new Date().toISOString().split("T")[0];
+
+  const todayReservations = reservationsCache.filter(
+    r => r.reservation_date === selectedDate
+  );
+
+  const pending = todayReservations.filter(
+    r => r.status === "pending"
+  ).length;
+
+  const confirmed = todayReservations.filter(
+    r => r.status === "confirmed"
+  ).length;
+
+  const cancelled = todayReservations.filter(
+    r => r.status === "cancelled"
+  ).length;
+
+  const totalEl = document.getElementById("reservationTotalCount");
+  const pendingEl = document.getElementById("reservationPendingCount");
+  const confirmedEl = document.getElementById("reservationConfirmedCount");
+  const cancelledEl = document.getElementById("reservationCancelledCount");
+
+  if(totalEl) totalEl.textContent = todayReservations.length;
+  if(pendingEl) pendingEl.textContent = pending;
+  if(confirmedEl) confirmedEl.textContent = confirmed;
+  if(cancelledEl) cancelledEl.textContent = cancelled;
+}
+
+function renderReservations(){
+
+  const loading = document.getElementById("reservationsLoading");
+  const list = document.getElementById("reservationsList");
+  const visibleCount = document.getElementById("reservationVisibleCount");
+
+  if(!list) return;
+
+  const search =
+    (document.getElementById("reservationSearchInput")?.value || "")
+      .trim()
+      .toLowerCase();
+
+  const selectedStatus =
+    document.getElementById("reservationStatusFilter")?.value || "all";
+
+  const selectedDate =
+    document.getElementById("reservationDateFilter")?.value || "";
+
+  let rows = [...reservationsCache];
+
+  if(selectedDate){
+    rows = rows.filter(
+      r => r.reservation_date === selectedDate
+    );
+  }
+
+  if(selectedStatus !== "all"){
+    rows = rows.filter(
+      r => (r.status || "pending") === selectedStatus
+    );
+  }
+
+  if(search){
+    rows = rows.filter(r => {
+
+      const table =
+        window.reservationTableMap?.[r.table_id];
+
+      const tableNumber =
+        table?.table_number || "";
+
+      return [
+        r.customer_name,
+        r.customer_phone,
+        r.customer_email,
+        tableNumber,
+        r.notes
+      ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+
+    });
+  }
+
+  rows.sort((a,b) => {
+    const aValue =
+      `${a.reservation_date || ""} ${a.reservation_time || ""}`;
+
+    const bValue =
+      `${b.reservation_date || ""} ${b.reservation_time || ""}`;
+
+    return aValue.localeCompare(bValue);
+  });
+
+  if(loading) loading.style.display = "none";
+
+  if(visibleCount){
+    visibleCount.textContent =
+      `${rows.length} Reservation${rows.length === 1 ? "" : "s"}`;
+  }
+
+  if(!rows.length){
+    list.innerHTML = `
+      <div class="coming-page">
+        <div>📅</div>
+        <h2>No Reservations Found</h2>
+        <p>No reservations match the selected filters.</p>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = rows.map(r => {
+
+    const table =
+      window.reservationTableMap?.[r.table_id];
+
+    const tableNumber =
+      table?.table_number || "Not assigned";
+
+    const capacity =
+      table?.capacity || r.guests || "-";
+
+    const status =
+      r.status || "pending";
+
+    const statusOptions = [
+      "pending",
+      "confirmed",
+      "completed",
+      "cancelled"
+    ];
+
+    const optionsHTML = statusOptions.map(option => `
+      <option value="${option}" ${status === option ? "selected" : ""}>
+        ${option.charAt(0).toUpperCase() + option.slice(1)}
+      </option>
+    `).join("");
+
+    return `
+      <div class="reservation-card">
+
+        <div class="reservation-card-main">
+
+          <div class="reservation-customer">
+            <strong>${escapeReservationText(r.customer_name || "Customer")}</strong>
+
+            <span>
+              📞 ${escapeReservationText(r.customer_phone || "No phone")}
+            </span>
+
+            ${
+              r.customer_email
+              ? `<span>✉️ ${escapeReservationText(r.customer_email)}</span>`
+              : ""
+            }
+          </div>
+
+          <div class="reservation-info">
+
+            <div>
+              <small>Date</small>
+              <strong>${escapeReservationText(r.reservation_date || "-")}</strong>
+            </div>
+
+            <div>
+              <small>Time</small>
+              <strong>${escapeReservationText(String(r.reservation_time || "-").slice(0,5))}</strong>
+            </div>
+
+            <div>
+              <small>Table</small>
+              <strong>Table ${escapeReservationText(tableNumber)}</strong>
+            </div>
+
+            <div>
+              <small>Guests</small>
+              <strong>${escapeReservationText(String(r.guests || capacity))}</strong>
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="reservation-card-bottom">
+
+          <div class="reservation-notes">
+            ${
+              r.notes
+              ? `📝 ${escapeReservationText(r.notes)}`
+              : "No additional notes"
+            }
+          </div>
+
+          <select
+            class="reservation-status-select"
+            onchange="updateReservationStatus(this.value, '${r.id}')"
+          >
+            ${optionsHTML}
+          </select>
+
+        </div>
+
+      </div>
+    `;
+
+  }).join("");
+}
+
+async function updateReservationStatus(newStatus, reservationId){
+
+  if(!newStatus || !reservationId) return;
+
+  try{
+
+    const { error } =
+      await supabaseClient
+        .from("reservations")
+        .update({
+          status: newStatus
+        })
+        .eq("id", reservationId)
+        .eq("restaurant_id", currentRestaurant.id);
+
+    if(error) throw error;
+
+    const reservation =
+      reservationsCache.find(r => r.id === reservationId);
+
+    if(reservation){
+      reservation.status = newStatus;
+    }
+
+    updateReservationCounts();
+    renderReservations();
+
+    console.log(
+      "RESERVATION STATUS UPDATED:",
+      reservationId,
+      newStatus
+    );
+
+  }catch(error){
+
+    console.error(
+      "UPDATE RESERVATION STATUS ERROR:",
+      error
+    );
+
+    alert(
+      "❌ Could not update reservation status.\n\n" +
+      (error.message || "Unknown error")
+    );
+
+    renderReservations();
+  }
+}
+
+function escapeReservationText(value){
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/* END RESERVATION SYSTEM V1 */
+
 function openPage(page){
   if (page === "orders") {
     loadOrders();
+  }
+
+  if (page === "reservations") {
+    loadReservations();
   }
 
   document.querySelectorAll('.page')
