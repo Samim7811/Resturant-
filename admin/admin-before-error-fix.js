@@ -56,64 +56,30 @@ async function checkSession(){
 
 
 async function login(e){
+
   e.preventDefault();
 
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
+
   const message = document.getElementById('loginMessage');
 
-  message.style.color = '#b00020';
-  message.textContent = '⏳ Signing in...';
+  message.textContent = 'Signing in...';
 
-  console.log('ADMIN LOGIN START');
-  console.log('Email:', email);
-  console.log('Supabase URL:', SUPABASE_URL);
+  const { data, error } =
+    await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
 
-  try {
-    const { data, error } =
-      await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-      });
+  if(error){
 
-    console.log('LOGIN RESPONSE:', { data, error });
+    message.textContent = error.message;
+    return;
 
-    if(error){
-      console.error('SUPABASE LOGIN ERROR:', error);
-
-      message.innerHTML =
-        '❌ <b>Login failed</b><br>' +
-        'Reason: ' + (error.message || 'Unknown error') +
-        '<br><small>Code: ' + (error.code || error.status || 'N/A') + '</small>';
-
-      return;
-    }
-
-    if(!data || !data.session){
-      message.innerHTML =
-        '❌ Login response এসেছে, কিন্তু session পাওয়া যায়নি।<br>' +
-        '<small>Console-এ ADMIN LOGIN START / LOGIN RESPONSE দেখুন.</small>';
-      console.error('NO SESSION:', data);
-      return;
-    }
-
-    message.style.color = '#087f23';
-    message.textContent = '✅ Login successful. Loading admin panel...';
-
-    console.log('LOGIN SUCCESS');
-    console.log('User ID:', data.user?.id);
-    console.log('Email:', data.user?.email);
-
-    showAdmin(data.session);
-
-  } catch(err) {
-    console.error('ADMIN LOGIN CRASH:', err);
-
-    message.innerHTML =
-      '❌ <b>Unexpected Error</b><br>' +
-      (err?.message || String(err)) +
-      '<br><small>Browser Console দেখুন.</small>';
   }
+
+  showAdmin(data.session);
 }
 
 
