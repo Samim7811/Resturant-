@@ -167,47 +167,6 @@ function selectTable(number, button){
 }
 
 
-function confirmDineIn(){
-
-  if(!selectedTable){
-    alert("Please select your table first.");
-    return;
-  }
-
-  document.querySelector(".cart-modal")?.remove();
-
-  alert(
-    "✓ Table " +
-    String(selectedTable).padStart(2,'0') +
-    " selected.\n\n" +
-    "Your order is ready to be placed."
-  );
-}
-
-
-
-
-
-function confirmDelivery(){
-
-  const name = document.getElementById("deliveryName").value.trim();
-  const phone = document.getElementById("deliveryPhone").value.trim();
-  const address = document.getElementById("deliveryAddress").value.trim();
-  const pincode = document.getElementById("deliveryPincode").value.trim();
-
-  if(!name || !phone || !address || !pincode){
-    alert("Please fill all required details.");
-    return;
-  }
-
-  document.querySelector(".cart-modal")?.remove();
-
-  alert(
-    "✓ Delivery details saved.\n\n" +
-    "Your order is ready to be placed."
-  );
-}
-
 
 /* ===== FINAL CART QUANTITY FIX ===== */
 
@@ -590,18 +549,26 @@ function selectDelivery() {
 function confirmDineIn() {
 
   if (!selectedTable) {
-
     document.getElementById("selectedTableText").innerHTML =
       "⚠️ Please select your table first.";
-
     return;
   }
+
+  window.pendingOrderMeta = {
+    type: "Dine In",
+    name: document.getElementById("dineName")?.value.trim() || "",
+    phone: document.getElementById("dinePhone")?.value.trim() || "",
+    address: "",
+    city: "",
+    pincode: "",
+    notes: "Table " + String(selectedTable).padStart(2, "0")
+  };
 
   document.querySelector(".cart-modal")?.remove();
 
   showFinalOrderScreen(
     "Dine In",
-    "Table " + String(selectedTable).padStart(2,'0')
+    "Table " + String(selectedTable).padStart(2, "0")
   );
 }
 
@@ -620,11 +587,23 @@ function confirmDelivery() {
   const pincode =
     document.getElementById("deliveryPincode").value.trim();
 
+  const landmark =
+    document.getElementById("deliveryLandmark")?.value.trim() || "";
+
   if (!name || !phone || !address || !pincode) {
-
+    alert("Please fill all required delivery details.");
     return;
-
   }
+
+  window.pendingOrderMeta = {
+    type: "Home Delivery",
+    name,
+    phone,
+    address,
+    city: "",
+    pincode,
+    notes: landmark ? "Landmark: " + landmark : ""
+  };
 
   document.querySelector(".cart-modal")?.remove();
 
@@ -716,49 +695,136 @@ function showFinalOrderScreen(type, detail) {
 }
 
 
-function placeDemoOrder() {
+async function placeDemoOrder() {
 
-  document.querySelector(".cart-modal")?.remove();
+  if (!cart || cart.length === 0) {
+    alert("Your cart is empty.");
+    return;
+  }
 
-  cart = [];
+  const meta = window.pendingOrderMeta || {};
+  const subtotal = cart.reduce(
+    (sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)),
+    0
+  );
 
-  updateCart();
+  const button = document.querySelector(".cart-modal .form-submit");
 
-  const modal = document.createElement("div");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "⏳ Placing Order...";
+  }
 
-  modal.className = "cart-modal show";
+  try {
 
-  modal.innerHTML = `
+    /* Get this restaurant's ID */
+    const restaurantResult = await supabaseClient
+      .from("restaurants")
+      .select("id")
+      .eq("slug", "golden-thali")
+      .single();
 
-    <div class="order-form-box">
+    if (restaurantResult.error || !restaurantResult.data) {
+      throw restaurantResult.error || new Error("Restaurant not found.");
+    }
 
-      <div class="form-title">
+    const restaurantId = restaurantResult.data.id;
 
-        <div style="font-size:55px">
-          🎉
+    /* Create order */
+    const orderPayload = {
+      restaurant_id: restaurantId,
+      order_type: meta.type || "Home Delivery",
+      customer_name: meta.name || "",
+      customer_phone: meta.phone || "",
+      delivery_address: meta.address || "",
+      delivery_city: meta.city || "",
+      delivery_pincode: meta.pincode || "",
+      subtotal: subtotal,
+      delivery_charge: 0,
+      discount: 0,
+      total: subtotal,
+      payment_method: "cash",
+      payment_status: "pending",
+      status: "pending",
+      notes: meta.notes || ""
+    };
+
+    const orderResult = await supabaseClient
+      .from("orders")
+      .insert(orderPayload)
+      .select("id, order_number")
+      .single();
+
+    if (orderResult.error || !orderResult.data) {
+      throw orderResult.error || new Error("Order could not be created.");
+    }
+
+    const orderId = orderResult.data.id;
+
+    /* Save every cart item */
+    const itemPayload = cart.map(item => ({
+      order_id: orderId,
+      product_id: item.productId || item.id || null,
+      product_name: item.name,
+      price: Number(item.price),
+      quantity: Number(item.quantity || 1),
+      subtotal:
+        Number(item.price) * Number(item.quantity || 1)
+    }));
+
+    const itemsResult = await supabaseClient
+      .from("order_items")
+      .insert(itemPayload);
+
+    if (itemsResult.error) {
+      throw itemsResult.error;
+    }
+
+    /* Clear cart only after successful database save */
+    cart = [];
+    localStorage.setItem("restaurant_cart", JSON.stringify(cart));
+    updateCart();
+
+    document.querySelector(".cart-modal")?.remove();
+
+    const successModal = document.createElement("div");
+    successModal.className = "cart-modal show";
+
+    successModal.innerHTML = `
+      <div class="order-form-box">
+        <div class="form-title">
+          <div style="font-size:55px;">✅</div>
+          <h2>Order Placed!</h2>
+          <p>Your order has been received successfully.</p>
+          <p><b>Order #${orderResult.data.order_number || ""}</b></p>
         </div>
 
-        <h2>Order Placed!</h2>
-
-        <p>
-          Your order has been received successfully.
-        </p>
-
+        <button
+          class="form-submit"
+          onclick="this.closest('.cart-modal').remove()">
+          Done
+        </button>
       </div>
+    `;
 
-      <button
-        class="form-submit"
-        onclick="this.closest('.cart-modal').remove()">
+    document.body.appendChild(successModal);
 
-        Done
+    window.pendingOrderMeta = null;
 
-      </button>
+  } catch (error) {
 
-    </div>
+    console.error("REAL ORDER ERROR:", error);
 
-  `;
+    if (button) {
+      button.disabled = false;
+      button.textContent = "✓ Place Order";
+    }
 
-  document.body.appendChild(modal);
+    alert(
+      "❌ Order could not be placed.\n\n" +
+      (error.message || "Unknown error")
+    );
+  }
 }
 
 
