@@ -733,7 +733,7 @@ async function placeDemoOrder() {
     /* Create order */
     const orderPayload = {
       restaurant_id: restaurantId,
-      order_type: meta.type || "Home Delivery",
+      order_type: meta.type === "dine_in" ? "dine_in" : "home_delivery",
       customer_name: meta.name || "",
       customer_phone: meta.phone || "",
       delivery_address: meta.address || "",
