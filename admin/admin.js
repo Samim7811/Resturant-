@@ -561,16 +561,23 @@ async function loadOrders(){
               </div>
             </div>
 
-            <span style="
-              padding:7px 12px;
-              border-radius:20px;
-              background:#fff3e8;
-              color:#b65f18;
-              font-weight:700;
-              text-transform:capitalize;
-            ">
-              ${order.status || "pending"}
-            </span>
+            <select
+  style="
+    padding:7px 10px;
+    border-radius:20px;
+    border:1px solid #f0d8c2;
+    background:#fff3e8;
+    color:#b65f18;
+    font-weight:700;
+    text-transform:capitalize;
+  "
+  onchange="updateOrderStatus(this.value, '${order.id}')"
+>
+  <option value="pending" ${(order.status || "pending") === "pending" ? "selected" : ""}>Pending</option>
+  <option value="confirmed" ${order.status === "confirmed" ? "selected" : ""}>Confirmed</option>
+  <option value="preparing" ${order.status === "preparing" ? "selected" : ""}>Preparing</option>
+  <option value="ready" ${order.status === "ready" ? "selected" : ""}>Ready</option>
+</select>
           </div>
 
           <div style="
@@ -623,6 +630,31 @@ async function loadOrders(){
         <p>${error.message || "Unknown error"}</p>
       </div>
     `;
+  }
+}
+
+async function updateOrderStatus(newStatus, orderId) {
+  if (!newStatus || !orderId) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from("orders")
+      .update({
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", orderId)
+      .eq("restaurant_id", currentRestaurant.id);
+
+    if (error) throw error;
+
+    await loadOrders();
+    await loadDashboard();
+
+  } catch (error) {
+    console.error("UPDATE ORDER STATUS ERROR:", error);
+    alert("❌ Could not update order status.\n\n" + (error.message || "Unknown error"));
+    await loadOrders();
   }
 }
 
