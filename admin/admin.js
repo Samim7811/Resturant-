@@ -447,7 +447,189 @@ async function loadDashboard(){
 }
 
 
+
+async function loadOrders(){
+
+  const loading = document.getElementById("ordersLoading");
+  const list = document.getElementById("ordersList");
+
+  if (!loading || !list) return;
+
+  loading.style.display = "block";
+  list.innerHTML = "";
+
+  if (!currentRestaurant?.id) {
+    loading.textContent = "Restaurant information not available.";
+    return;
+  }
+
+  try {
+
+    const { data: orders, error: ordersError } =
+      await supabaseClient
+        .from("orders")
+        .select("*")
+        .eq("restaurant_id", currentRestaurant.id)
+        .order("created_at", { ascending: false });
+
+    if (ordersError) throw ordersError;
+
+    if (!orders || orders.length === 0) {
+      loading.style.display = "none";
+      list.innerHTML = `
+        <div class="coming-page">
+          <div>📦</div>
+          <h2>No Orders Yet</h2>
+          <p>New dine-in and home delivery orders will appear here.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const orderIds = orders.map(order => order.id);
+
+    const { data: items, error: itemsError } =
+      await supabaseClient
+        .from("order_items")
+        .select("*")
+        .in("order_id", orderIds);
+
+    if (itemsError) throw itemsError;
+
+    const itemMap = {};
+
+    (items || []).forEach(item => {
+      if (!itemMap[item.order_id]) itemMap[item.order_id] = [];
+      itemMap[item.order_id].push(item);
+    });
+
+    loading.style.display = "none";
+
+    list.innerHTML = orders.map(order => {
+
+      const orderItems = itemMap[order.id] || [];
+
+      const typeLabel =
+        order.order_type === "dine_in"
+          ? "🍽️ Dine In"
+          : "🛵 Home Delivery";
+
+      const location =
+        order.order_type === "dine_in"
+          ? (order.notes || "Table information not provided")
+          : (order.delivery_address || "Address not provided");
+
+      const created = order.created_at
+        ? new Date(order.created_at).toLocaleString("en-IN")
+        : "";
+
+      const itemsHTML = orderItems.length
+        ? orderItems.map(item => `
+            <div style="display:flex;justify-content:space-between;
+                        padding:8px 0;border-bottom:1px solid #eee;">
+              <span>
+                ${item.product_name || "Food Item"} × ${item.quantity || 1}
+              </span>
+              <strong>₹${Number(item.subtotal || 0).toFixed(2)}</strong>
+            </div>
+          `).join("")
+        : `<div style="color:#888;padding:8px 0;">
+             No item details found.
+           </div>`;
+
+      return `
+        <div style="
+          background:#fff;
+          border-radius:18px;
+          padding:20px;
+          margin-bottom:18px;
+          box-shadow:0 4px 18px rgba(0,0,0,.06);
+        ">
+
+          <div style="
+            display:flex;
+            justify-content:space-between;
+            gap:10px;
+            margin-bottom:15px;
+          ">
+            <div>
+              <strong style="font-size:18px;">
+                #${order.order_number || String(order.id).slice(0,8)}
+              </strong>
+              <div style="color:#777;font-size:13px;">
+                ${created}
+              </div>
+            </div>
+
+            <span style="
+              padding:7px 12px;
+              border-radius:20px;
+              background:#fff3e8;
+              color:#b65f18;
+              font-weight:700;
+              text-transform:capitalize;
+            ">
+              ${order.status || "pending"}
+            </span>
+          </div>
+
+          <div style="
+            background:#fafafa;
+            padding:14px;
+            border-radius:12px;
+            margin-bottom:15px;
+          ">
+            <div style="font-weight:700;margin-bottom:6px;">
+              ${typeLabel}
+            </div>
+            <div><strong>${order.customer_name || "Customer"}</strong></div>
+            <div>📞 ${order.customer_phone || "Not provided"}</div>
+            <div style="margin-top:5px;">
+              📍 ${location}
+            </div>
+          </div>
+
+          <h4 style="margin:0 0 8px;">Order Items</h4>
+
+          ${itemsHTML}
+
+          <div style="
+            display:flex;
+            justify-content:space-between;
+            margin-top:15px;
+            padding-top:12px;
+            border-top:2px solid #eee;
+            font-size:18px;
+          ">
+            <strong>Total</strong>
+            <strong>₹${Number(order.total || 0).toFixed(2)}</strong>
+          </div>
+
+        </div>
+      `;
+
+    }).join("");
+
+  } catch (error) {
+
+    console.error("LOAD ORDERS ERROR:", error);
+
+    loading.style.display = "none";
+
+    list.innerHTML = `
+      <div class="coming-page">
+        <div>❌</div>
+        <h2>Could not load orders</h2>
+        <p>${error.message || "Unknown error"}</p>
+      </div>
+    `;
+  }
+}
+
 function openPage(page){
+  if (page === "orders") {
+    loadOrders();
+  }
 
   document.querySelectorAll('.page')
     .forEach(p => p.classList.remove('active'));
