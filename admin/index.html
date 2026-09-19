@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Restaurant Admin</title>
-  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260919">
 </head>
 
 <body>
@@ -184,16 +184,123 @@
 
 
     <section id="ordersPage" class="page">
+
   <div class="orders-container">
-    <div id="ordersLoading" style="padding:30px;text-align:center;color:#777;">
+
+    <!-- Orders Header -->
+    <div class="orders-header">
+      <div>
+        <h2>Orders</h2>
+        <p>Manage all restaurant orders</p>
+      </div>
+
+      <div class="orders-header-actions">
+        <button class="orders-refresh-btn" onclick="loadOrders()">
+          ↻ Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Filters -->
+    <div class="order-status-tabs">
+
+      <button class="order-status-tab active" data-order-status="all">
+        All <span id="countAll">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="pending">
+        Pending <span id="countPending">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="confirmed">
+        Confirmed <span id="countConfirmed">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="preparing">
+        Preparing <span id="countPreparing">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="ready">
+        Ready <span id="countReady">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="served">
+        Served <span id="countServed">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="out_for_delivery">
+        Out for Delivery <span id="countOutForDelivery">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="delivered">
+        Delivered <span id="countDelivered">0</span>
+      </button>
+
+      <button class="order-status-tab" data-order-status="cancelled">
+        Cancelled <span id="countCancelled">0</span>
+      </button>
+
+    </div>
+
+    <!-- Search + Time Filter -->
+    <div class="orders-toolbar">
+
+      <div class="orders-search-box">
+        <span>🔍</span>
+        <input
+          id="orderSearchInput"
+          type="search"
+          placeholder="Search Order ID, customer name or phone..."
+          autocomplete="off"
+        >
+      </div>
+
+      <select id="orderTimeFilter" class="orders-time-filter">
+        <option value="12">Last 12 Hours</option>
+        <option value="24">Last 24 Hours</option>
+        <option value="all">All Orders</option>
+      </select>
+
+      <select id="orderSortFilter" class="orders-sort-filter">
+        <option value="latest">Latest First</option>
+        <option value="oldest">Oldest First</option>
+      </select>
+
+    </div>
+
+    <!-- Current Filter Title -->
+    <div class="orders-list-header">
+
+      <div>
+        <h3 id="ordersListTitle">All Orders</h3>
+        <p id="ordersListSubtitle">
+          Showing recent orders
+        </p>
+      </div>
+
+      <span id="ordersVisibleCount" class="orders-visible-count">
+        0 Orders
+      </span>
+
+    </div>
+
+    <!-- Loading -->
+    <div
+      id="ordersLoading"
+      style="padding:30px;text-align:center;color:#777;"
+    >
       ⏳ Loading orders...
     </div>
+
+    <!-- Orders -->
     <div id="ordersList"></div>
+
   </div>
+
 </section>
 
 
-    <section id="categoriesPage" class="page">
+<section id="categoriesPage" class="page">
       <div class="coming-page">
         <div>📂</div>
         <h2>Categories & Sub-categories</h2>
@@ -415,7 +522,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
-<script src="admin.js"></script>
+<script src="admin.js?v=20260919"></script>
 
 </body>
 </html>
