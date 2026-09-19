@@ -26,13 +26,282 @@ function continueOrder() {
   }
 }
 
-function bookTable(event) {
+async function bookTable(event) {
   event.preventDefault();
 
-  alert(
-    "✅ Reservation Request Received!\n\n" +
-    "We will confirm your booking shortly."
+  const form = event.target;
+  const name = form.querySelector('input[type="text"]')?.value.trim() || "";
+  const phone = form.querySelector('input[type="tel"]')?.value.trim() || "";
+  const date = form.querySelector('input[type="date"]')?.value || "";
+  const time = form.querySelector('input[type="time"]')?.value || "";
+  const guests = Number(
+    form.querySelector('select[name="guests"]')?.value ||
+    form.querySelectorAll("select")[0]?.value ||
+    0
   );
+  const duration = Number(
+    form.querySelector('select[name="duration"]')?.value ||
+    form.querySelectorAll("select")[1]?.value ||
+    60
+  );
+
+  if (!name || !phone || !date || !time || !guests) {
+    alert("Please fill all reservation details.");
+    return;
+  }
+
+  const startMinutes =
+    Number(time.split(":")[0]) * 60 +
+    Number(time.split(":")[1]);
+
+  const endMinutes = startMinutes + duration;
+
+  // Restaurant reservation window: 8:00 AM - 10:00 PM
+  if (startMinutes < 8 * 60 || endMinutes > 22 * 60) {
+    alert("Reservation time must be between 8:00 AM and 10:00 PM.");
+    return;
+  }
+
+  const button = form.querySelector('button[type="submit"]');
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Checking availability...";
+  }
+
+  try {
+    const restaurantResult = await supabaseClient
+      .from("restaurants")
+      .select("id")
+      .eq("slug", "golden-thali")
+      .single();
+
+    if (restaurantResult.error || !restaurantResult.data) {
+      throw restaurantResult.error ||
+        new Error("Restaurant information not found.");
+    }
+
+    const restaurantId = restaurantResult.data.id;
+
+    // Get available tables
+    const tablesResult = await supabaseClient
+      .from("restaurant_tables")
+      .select("id,table_number,capacity,status")
+      .eq("restaurant_id", restaurantId)
+      .eq("status", "available")
+      .gte("capacity", guests)
+      .order("capacity", { ascending: true });
+
+    if (tablesResult.error) throw tablesResult.error;
+
+    const tables = tablesResult.data || [];
+
+    if (!tables.length) {
+      throw new Error(
+        "No suitable table is available for " + guests + " guests."
+      );
+    }
+
+    // Get all non-cancelled reservations for the selected date
+    const reservationResult = await supabaseClient
+      .from("reservations")
+      .select(
+        "id,table_id,reservation_time,end_time,duration_minutes,status"
+      )
+      .eq("restaurant_id", restaurantId)
+      .eq("reservation_date", date)
+      .neq("status", "cancelled");
+
+    if (reservationResult.error) {
+      throw reservationResult.error;
+    }
+
+    const existing = reservationResult.data || [];
+
+    function toMinutes(value) {
+      if (!value) return 0;
+
+      const parts = String(value).slice(0, 5).split(":");
+
+      return Number(parts[0]) * 60 + Number(parts[1]);
+    }
+
+    function hasOverlap(tableId) {
+      return existing.some(r => {
+        if (r.table_id !== tableId) return false;
+
+        const oldStart = toMinutes(r.reservation_time);
+        const oldEnd =
+          r.end_time
+            ? toMinutes(r.end_time)
+            : oldStart + Number(r.duration_minutes || 60);
+
+        return startMinutes < oldEnd && endMinutes > oldStart;
+      });
+    }
+
+    // Pick the smallest suitable free table
+    const freeTable = tables.find(
+      table => !hasOverlap(table.id)
+    );
+
+    if (!freeTable) {
+      throw new Error(
+        "All suitable tables are already booked for this time. Please choose another time."
+      );
+    }
+
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+
+    const endHour = Math.floor(endMinutes / 60);
+    const endMinute = endMinutes % 60;
+
+    const endTime =
+      String(endHour).padStart(2, "0") +
+      ":" +
+      String(endMinute).padStart(2, "0") +
+      ":00";
+
+    const reservationPayload = {
+      restaurant_id: restaurantId,
+      table_id: freeTable.id,
+      customer_name: name,
+      customer_phone: phone,
+      reservation_date: date,
+      reservation_time: time + ":00",
+      duration_minutes: duration,
+      end_time: endTime,
+      guests: guests,
+      status: "pending",
+      notes:
+        "Duration: " +
+        (hours ? hours + " hour" + (hours > 1 ? "s" : "") : "") +
+        (minutes ? " " + minutes + " minutes" : "")
+    };
+
+    const insertResult = await supabaseClient
+      .from("reservations")
+      .insert(reservationPayload)
+      .select(
+        "id,reservation_date,reservation_time,end_time,guests,status"
+      )
+      .single();
+
+    if (insertResult.error) {
+      throw insertResult.error;
+    }
+
+    const reservedDate = new Date(date + "T00:00:00");
+
+    const displayDate = reservedDate.toLocaleDateString(
+      "en-IN",
+      {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }
+    );
+
+    const displayTime = new Date(
+      "2000-01-01T" + time + ":00"
+    ).toLocaleTimeString(
+      "en-IN",
+      {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      }
+    );
+
+    const displayEndTime = new Date(
+      "2000-01-01T" + endTime
+    ).toLocaleTimeString(
+      "en-IN",
+      {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      }
+    );
+
+    alert(
+      "✅ Reservation Confirmed!\n\n" +
+      "Table: " + freeTable.table_number + "\n" +
+      "Date: " + displayDate + "\n" +
+      "Time: " + displayTime + " - " + displayEndTime + "\n" +
+      "Guests: " + guests + "\n\n" +
+      "Your reservation request has been received."
+    );
+
+    form.reset();
+
+    const dateInput = form.querySelector('input[type="date"]');
+
+    if (dateInput) {
+      dateInput.min = new Date()
+        .toISOString()
+        .split("T")[0];
+    }
+
+    if (typeof updateReservationTimeOptions === "function") {
+      updateReservationTimeOptions();
+    }
+
+  } catch (error) {
+    console.error("USER RESERVATION ERROR:", error);
+
+    alert(
+      "❌ Reservation could not be completed.\n\n" +
+      (error.message || "Unknown error")
+    );
+
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Confirm Reservation";
+    }
+  }
+}
+
+function updateReservationTimeOptions() {
+  const form = document.querySelector(
+    '#booking form, form[onsubmit*="bookTable"]'
+  );
+
+  if (!form) return;
+
+  const timeInput = form.querySelector('input[type="time"]');
+
+  if (!timeInput) return;
+
+  timeInput.min = "08:00";
+  timeInput.max = "20:00";
+  timeInput.step = "3600";
+}
+
+function setupReservationForm() {
+  const form = document.querySelector(
+    '#booking form, form[onsubmit*="bookTable"]'
+  );
+
+  if (!form) return;
+
+  const dateInput = form.querySelector('input[type="date"]');
+
+  if (dateInput) {
+    const today = new Date()
+      .toISOString()
+      .split("T")[0];
+
+    dateInput.min = today;
+
+    if (!dateInput.value) {
+      dateInput.value = today;
+    }
+  }
+
+  updateReservationTimeOptions();
 }
 /* ===== UPDATED CART SYSTEM ===== */
 
