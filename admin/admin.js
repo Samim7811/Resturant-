@@ -448,181 +448,81 @@ async function loadDashboard(){
 
 
 
+
+/* =========================================================
+   ORDERS FUNCTION V2 SAFE
+   Existing Supabase connection preserved.
+   ========================================================= */
+
+let ordersCache = [];
+let activeOrderStatus = "all";
+
 async function loadOrders(){
 
   const loading = document.getElementById("ordersLoading");
   const list = document.getElementById("ordersList");
 
-  if (!loading || !list) return;
+  if(!loading || !list) return;
 
   loading.style.display = "block";
-  list.innerHTML = "";
 
-  if (!currentRestaurant?.id) {
+  if(!currentRestaurant?.id){
     loading.textContent = "Restaurant information not available.";
     return;
   }
 
-  try {
+  try{
 
     const { data: orders, error: ordersError } =
       await supabaseClient
         .from("orders")
         .select("*")
         .eq("restaurant_id", currentRestaurant.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending:false });
 
-    if (ordersError) throw ordersError;
+    if(ordersError) throw ordersError;
 
-    if (!orders || orders.length === 0) {
-      loading.style.display = "none";
-      list.innerHTML = `
-        <div class="coming-page">
-          <div>📦</div>
-          <h2>No Orders Yet</h2>
-          <p>New dine-in and home delivery orders will appear here.</p>
-        </div>
-      `;
-      return;
+    const orderIds = (orders || []).map(order => order.id);
+
+    let items = [];
+
+    if(orderIds.length){
+
+      const { data, error: itemsError } =
+        await supabaseClient
+          .from("order_items")
+          .select("*")
+          .in("order_id", orderIds);
+
+      if(itemsError) throw itemsError;
+
+      items = data || [];
     }
-
-    const orderIds = orders.map(order => order.id);
-
-    const { data: items, error: itemsError } =
-      await supabaseClient
-        .from("order_items")
-        .select("*")
-        .in("order_id", orderIds);
-
-    if (itemsError) throw itemsError;
 
     const itemMap = {};
 
-    (items || []).forEach(item => {
-      if (!itemMap[item.order_id]) itemMap[item.order_id] = [];
+    items.forEach(item => {
+
+      if(!itemMap[item.order_id]){
+        itemMap[item.order_id] = [];
+      }
+
       itemMap[item.order_id].push(item);
+
     });
+
+    ordersCache = (orders || []).map(order => ({
+      ...order,
+      __items: itemMap[order.id] || []
+    }));
 
     loading.style.display = "none";
 
-    list.innerHTML = orders.map(order => {
+    setupOrderFilters();
 
-      const orderItems = itemMap[order.id] || [];
+    renderOrdersV2();
 
-      const typeLabel =
-        order.order_type === "dine_in"
-          ? "🍽️ Dine In"
-          : "🛵 Home Delivery";
-
-      const location =
-      order.order_type === "dine_in"
-        ? (order.notes || "Table information not provided")
-        : [
-            order.delivery_address || "Address not provided",
-            order.delivery_pincode ? "PIN: " + order.delivery_pincode : "",
-            order.notes ? "📍 Landmark: " + order.notes.replace("Landmark: ", "") : ""
-          ].filter(Boolean).join("<br>");
-
-      const created = order.created_at
-        ? new Date(order.created_at).toLocaleString("en-IN")
-        : "";
-
-      const itemsHTML = orderItems.length
-        ? orderItems.map(item => `
-            <div style="display:flex;justify-content:space-between;
-                        padding:8px 0;border-bottom:1px solid #eee;">
-              <span>
-                ${item.product_name || "Food Item"} × ${item.quantity || 1}
-              </span>
-              <strong>₹${Number(item.subtotal || 0).toFixed(2)}</strong>
-            </div>
-          `).join("")
-        : `<div style="color:#888;padding:8px 0;">
-             No item details found.
-           </div>`;
-
-      return `
-        <div style="
-          background:#fff;
-          border-radius:18px;
-          padding:20px;
-          margin-bottom:18px;
-          box-shadow:0 4px 18px rgba(0,0,0,.06);
-        ">
-
-          <div style="
-            display:flex;
-            justify-content:space-between;
-            gap:10px;
-            margin-bottom:15px;
-          ">
-            <div>
-              <strong style="font-size:18px;">
-                #${order.order_number || String(order.id).slice(0,8)}
-              </strong>
-              <div style="color:#777;font-size:13px;">
-                ${created}
-              </div>
-            </div>
-
-            <select
-  style="
-    padding:7px 10px;
-    border-radius:20px;
-    border:1px solid #f0d8c2;
-    background:#fff3e8;
-    color:#b65f18;
-    font-weight:700;
-    text-transform:capitalize;
-  "
-  onchange="updateOrderStatus(this.value, '${order.id}')"
->
-  <option value="pending" ${(order.status || "pending") === "pending" ? "selected" : ""}>Pending</option>
-  <option value="confirmed" ${order.status === "confirmed" ? "selected" : ""}>Confirmed</option>
-  <option value="preparing" ${order.status === "preparing" ? "selected" : ""}>Preparing</option>
-  <option value="ready" ${order.status === "ready" ? "selected" : ""}>Ready</option>
-  <option value="served" ${order.status === "served" ? "selected" : ""}>Served</option>
-</select>
-          </div>
-
-          <div style="
-            background:#fafafa;
-            padding:14px;
-            border-radius:12px;
-            margin-bottom:15px;
-          ">
-            <div style="font-weight:700;margin-bottom:6px;">
-              ${typeLabel}
-            </div>
-            <div><strong>${order.customer_name || "Customer"}</strong></div>
-            <div>📞 ${order.customer_phone || "Not provided"}</div>
-            <div style="margin-top:5px;">
-              📍 ${location}
-            </div>
-          </div>
-
-          <h4 style="margin:0 0 8px;">Order Items</h4>
-
-          ${itemsHTML}
-
-          <div style="
-            display:flex;
-            justify-content:space-between;
-            margin-top:15px;
-            padding-top:12px;
-            border-top:2px solid #eee;
-            font-size:18px;
-          ">
-            <strong>Total</strong>
-            <strong>₹${Number(order.total || 0).toFixed(2)}</strong>
-          </div>
-
-        </div>
-      `;
-
-    }).join("");
-
-  } catch (error) {
+  }catch(error){
 
     console.error("LOAD ORDERS ERROR:", error);
 
@@ -635,59 +535,673 @@ async function loadOrders(){
         <p>${error.message || "Unknown error"}</p>
       </div>
     `;
+
   }
+
 }
 
-async function updateOrderStatus(newStatus, orderId) {
-  const select = document.querySelector(
-    `select[onchange*="${orderId}"]`
-  );
 
-  if (!newStatus || !orderId) return;
+function setupOrderFilters(){
 
-  const previousStatus = select ? select.dataset.previousStatus || "pending" : "pending";
+  document
+    .querySelectorAll(".order-status-tab")
+    .forEach(tab => {
 
-  if (select) {
-    select.dataset.previousStatus = newStatus;
-    select.disabled = true;
-    select.style.opacity = "0.6";
+      tab.onclick = function(){
+
+        activeOrderStatus =
+          this.dataset.orderStatus || "all";
+
+        document
+          .querySelectorAll(".order-status-tab")
+          .forEach(t => t.classList.remove("active"));
+
+        this.classList.add("active");
+
+        renderOrdersV2();
+
+      };
+
+    });
+
+  const search =
+    document.getElementById("orderSearchInput");
+
+  if(search && !search.dataset.bound){
+
+    search.dataset.bound = "1";
+
+    search.addEventListener("input", () => {
+      renderOrdersV2();
+    });
+
   }
 
-  try {
-    const { error } = await supabaseClient
-      .from("orders")
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", orderId)
-      .eq("restaurant_id", currentRestaurant.id);
+  const time =
+    document.getElementById("orderTimeFilter");
 
-    if (error) throw error;
+  if(time && !time.dataset.bound){
 
-    if (select) {
-      select.disabled = false;
-      select.style.opacity = "1";
+    time.dataset.bound = "1";
+
+    time.addEventListener("change", () => {
+      renderOrdersV2();
+    });
+
+  }
+
+  const sort =
+    document.getElementById("orderSortFilter");
+
+  if(sort && !sort.dataset.bound){
+
+    sort.dataset.bound = "1";
+
+    sort.addEventListener("change", () => {
+      renderOrdersV2();
+    });
+
+  }
+
+}
+
+
+function renderOrdersV2(){
+
+  const list =
+    document.getElementById("ordersList");
+
+  if(!list) return;
+
+  const search =
+    (document.getElementById("orderSearchInput")?.value || "")
+      .trim()
+      .toLowerCase();
+
+  const timeValue =
+    document.getElementById("orderTimeFilter")?.value || "12";
+
+  const sortValue =
+    document.getElementById("orderSortFilter")?.value || "latest";
+
+  let filtered = [...ordersCache];
+
+  if(timeValue !== "all"){
+
+    const hours = Number(timeValue);
+
+    const cutoff =
+      Date.now() - hours * 60 * 60 * 1000;
+
+    filtered = filtered.filter(order => {
+
+      if(!order.created_at) return false;
+
+      return new Date(order.created_at).getTime() >= cutoff;
+
+    });
+
+  }
+
+
+  if(activeOrderStatus !== "all"){
+
+    filtered = filtered.filter(order =>
+      (order.status || "pending") === activeOrderStatus
+    );
+
+  }
+
+
+  if(search){
+
+    filtered = filtered.filter(order => {
+
+      const searchable = [
+
+        order.order_number,
+        order.id,
+        order.customer_name,
+        order.customer_phone,
+        order.delivery_address,
+        order.delivery_pincode,
+        order.notes
+
+      ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+      return searchable.includes(search);
+
+    });
+
+  }
+
+
+  filtered.sort((a,b) => {
+
+    const aTime =
+      new Date(a.created_at || 0).getTime();
+
+    const bTime =
+      new Date(b.created_at || 0).getTime();
+
+    return sortValue === "oldest"
+      ? aTime - bTime
+      : bTime - aTime;
+
+  });
+
+
+  updateOrderCountsV2(timeValue);
+
+
+  const title =
+    document.getElementById("ordersListTitle");
+
+  const subtitle =
+    document.getElementById("ordersListSubtitle");
+
+  const visible =
+    document.getElementById("ordersVisibleCount");
+
+
+  if(title){
+
+    title.textContent =
+      activeOrderStatus === "all"
+        ? "All Orders"
+        : activeOrderStatus
+            .replaceAll("_"," ")
+            .replace(/\b\w/g,c => c.toUpperCase()) +
+          " Orders";
+
+  }
+
+
+  if(subtitle){
+
+    subtitle.textContent =
+      timeValue === "all"
+        ? "Showing all orders"
+        : "Showing orders from last " +
+          timeValue +
+          " hours";
+
+  }
+
+
+  if(visible){
+
+    visible.textContent =
+      filtered.length +
+      " Order" +
+      (filtered.length === 1 ? "" : "s");
+
+  }
+
+
+  if(!filtered.length){
+
+    list.innerHTML = `
+      <div class="coming-page">
+        <div>📦</div>
+        <h2>No Orders Found</h2>
+        <p>Try another status, search or time filter.</p>
+      </div>
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML = filtered.map(order => {
+
+    const status =
+      order.status || "pending";
+
+    const isDelivery =
+      order.order_type === "home_delivery";
+
+    const typeLabel =
+      isDelivery
+        ? "🛵 Home Delivery"
+        : "🍽️ Dine In";
+
+
+    const location =
+      isDelivery
+        ? [
+            order.delivery_address || "Address not provided",
+            order.delivery_pincode
+              ? "PIN: " + order.delivery_pincode
+              : "",
+            order.notes
+              ? "📍 " +
+                String(order.notes)
+                  .replace("Landmark: ","")
+              : ""
+          ]
+          .filter(Boolean)
+          .join("<br>")
+        : (
+            order.notes ||
+            "Table information not provided"
+          );
+
+
+    const created =
+      order.created_at
+        ? new Date(order.created_at)
+            .toLocaleString("en-IN")
+        : "";
+
+
+    const orderItems =
+      order.__items || [];
+
+
+    const itemsHTML =
+      orderItems.length
+        ? orderItems.map(item => `
+            <div style="
+              display:flex;
+              justify-content:space-between;
+              gap:10px;
+              padding:8px 0;
+              border-bottom:1px solid #eee;
+            ">
+              <span>
+                ${escapeOrderText(item.product_name || "Food Item")}
+                × ${Number(item.quantity || 1)}
+              </span>
+              <strong>
+                ₹${Number(item.subtotal || 0).toFixed(2)}
+              </strong>
+            </div>
+          `).join("")
+        : `
+            <div style="color:#888;padding:8px 0;">
+              No item details found.
+            </div>
+          `;
+
+
+    let statusOptions = `
+      <option value="pending" ${status === "pending" ? "selected" : ""}>
+        Pending
+      </option>
+
+      <option value="confirmed" ${status === "confirmed" ? "selected" : ""}>
+        Confirmed
+      </option>
+
+      <option value="preparing" ${status === "preparing" ? "selected" : ""}>
+        Preparing
+      </option>
+
+      <option value="ready" ${status === "ready" ? "selected" : ""}>
+        Ready
+      </option>
+    `;
+
+
+    if(isDelivery){
+
+      statusOptions += `
+        <option value="out_for_delivery"
+          ${status === "out_for_delivery" ? "selected" : ""}>
+          Out for Delivery
+        </option>
+
+        <option value="delivered"
+          ${status === "delivered" ? "selected" : ""}>
+          Delivered
+        </option>
+
+        <option value="cancelled"
+          ${status === "cancelled" ? "selected" : ""}>
+          Cancelled
+        </option>
+      `;
+
+    }else{
+
+      statusOptions += `
+        <option value="served"
+          ${status === "served" ? "selected" : ""}>
+          Served
+        </option>
+
+        <option value="cancelled"
+          ${status === "cancelled" ? "selected" : ""}>
+          Cancelled
+        </option>
+      `;
+
     }
 
-    console.log("ORDER STATUS UPDATED:", orderId, newStatus);
 
-  } catch (error) {
-    console.error("UPDATE ORDER STATUS ERROR:", error);
+    return `
+      <div
+        class="order-card-v2"
+        data-order-id="${escapeOrderText(order.id)}"
+        style="
+          background:#fff;
+          border-radius:18px;
+          padding:20px;
+          margin-bottom:18px;
+          box-shadow:0 4px 18px rgba(0,0,0,.06);
+        "
+      >
 
-    if (select) {
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:15px;
+          margin-bottom:15px;
+        ">
+
+          <div>
+
+            <strong style="font-size:19px;">
+              #${escapeOrderText(
+                order.order_number ||
+                String(order.id).slice(0,8)
+              )}
+            </strong>
+
+            <div style="
+              color:#777;
+              font-size:13px;
+              margin-top:4px;
+            ">
+              🕐 ${escapeOrderText(created)}
+            </div>
+
+          </div>
+
+
+          <select
+            class="order-status-select-v2"
+            data-order-id="${escapeOrderText(order.id)}"
+            data-previous-status="${escapeOrderText(status)}"
+            onchange="updateOrderStatus(this.value, '${escapeOrderText(order.id)}')"
+            style="
+              padding:8px 12px;
+              border-radius:20px;
+              border:1px solid #f0d8c2;
+              background:#fff3e8;
+              color:#b65f18;
+              font-weight:700;
+            "
+          >
+            ${statusOptions}
+          </select>
+
+        </div>
+
+
+        <div style="
+          background:#fafafa;
+          padding:14px;
+          border-radius:12px;
+          margin-bottom:15px;
+        ">
+
+          <div style="
+            font-weight:700;
+            margin-bottom:7px;
+          ">
+            ${typeLabel}
+          </div>
+
+          <div>
+            <strong>
+              ${escapeOrderText(
+                order.customer_name || "Customer"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            📞 ${escapeOrderText(
+              order.customer_phone || "Not provided"
+            )}
+          </div>
+
+          <div style="margin-top:6px;">
+            📍 ${location}
+          </div>
+
+        </div>
+
+
+        <h4 style="margin:0 0 8px;">
+          Order Items (${orderItems.length})
+        </h4>
+
+        ${itemsHTML}
+
+
+        <div style="
+          display:flex;
+          justify-content:space-between;
+          margin-top:15px;
+          padding-top:12px;
+          border-top:2px solid #eee;
+          font-size:18px;
+        ">
+          <strong>Total</strong>
+          <strong>
+            ₹${Number(order.total || 0).toFixed(2)}
+          </strong>
+        </div>
+
+      </div>
+    `;
+
+  }).join("");
+
+}
+
+
+function escapeOrderText(value){
+
+  return String(value ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+
+}
+
+
+function updateOrderCountsV2(timeValue){
+
+  const cutoff =
+    timeValue === "all"
+      ? null
+      : Date.now() -
+        Number(timeValue) * 60 * 60 * 1000;
+
+
+  const visibleOrders =
+    ordersCache.filter(order => {
+
+      if(!cutoff) return true;
+
+      return order.created_at &&
+        new Date(order.created_at).getTime() >= cutoff;
+
+    });
+
+
+  const counts = {
+
+    all: visibleOrders.length,
+
+    pending: 0,
+    confirmed: 0,
+    preparing: 0,
+    ready: 0,
+    served: 0,
+    out_for_delivery: 0,
+    delivered: 0,
+    cancelled: 0
+
+  };
+
+
+  visibleOrders.forEach(order => {
+
+    const status =
+      order.status || "pending";
+
+    if(
+      Object.prototype.hasOwnProperty
+        .call(counts,status)
+    ){
+      counts[status]++;
+    }
+
+  });
+
+
+  const ids = {
+
+    countAll: counts.all,
+    countPending: counts.pending,
+    countConfirmed: counts.confirmed,
+    countPreparing: counts.preparing,
+    countReady: counts.ready,
+    countServed: counts.served,
+    countOutForDelivery: counts.out_for_delivery,
+    countDelivered: counts.delivered,
+    countCancelled: counts.cancelled
+
+  };
+
+
+  Object.entries(ids).forEach(([id,value]) => {
+
+    const element =
+      document.getElementById(id);
+
+    if(element){
+      element.textContent = value;
+    }
+
+  });
+
+}
+
+
+async function updateOrderStatus(newStatus, orderId){
+
+  if(!newStatus || !orderId) return;
+
+
+  const select =
+    document.querySelector(
+      '.order-status-select-v2[data-order-id="' +
+      String(orderId).replace(/"/g,'\\"') +
+      '"]'
+    );
+
+
+  const cachedOrder =
+    ordersCache.find(
+      order =>
+        String(order.id) === String(orderId)
+    );
+
+
+  const previousStatus =
+    cachedOrder?.status ||
+    select?.dataset.previousStatus ||
+    "pending";
+
+
+  if(select){
+
+    select.disabled = true;
+    select.style.opacity = "0.6";
+
+  }
+
+
+  try{
+
+    const { error } =
+      await supabaseClient
+        .from("orders")
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", orderId)
+        .eq("restaurant_id", currentRestaurant.id);
+
+
+    if(error) throw error;
+
+
+    if(cachedOrder){
+      cachedOrder.status = newStatus;
+    }
+
+
+    if(select){
+
+      select.dataset.previousStatus = newStatus;
+      select.disabled = false;
+      select.style.opacity = "1";
+
+    }
+
+
+    renderOrdersV2();
+
+
+  }catch(error){
+
+    console.error(
+      "UPDATE ORDER STATUS ERROR:",
+      error
+    );
+
+
+    if(cachedOrder){
+      cachedOrder.status = previousStatus;
+    }
+
+
+    if(select){
+
       select.value = previousStatus;
+      select.dataset.previousStatus = previousStatus;
       select.disabled = false;
       select.style.opacity = "1";
-      select.dataset.previousStatus = previousStatus;
+
     }
+
 
     alert(
       "❌ Could not update order status.\n\n" +
       (error.message || "Unknown error")
     );
+
   }
+
 }
+
+
+/* END ORDERS FUNCTION V2 SAFE */
 
 function openPage(page){
   if (page === "orders") {
