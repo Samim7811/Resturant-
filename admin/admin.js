@@ -515,9 +515,13 @@ async function loadOrders(){
           : "🛵 Home Delivery";
 
       const location =
-        order.order_type === "dine_in"
-          ? (order.notes || "Table information not provided")
-          : (order.delivery_address || "Address not provided");
+      order.order_type === "dine_in"
+        ? (order.notes || "Table information not provided")
+        : [
+            order.delivery_address || "Address not provided",
+            order.delivery_pincode ? "PIN: " + order.delivery_pincode : "",
+            order.notes ? "📍 Landmark: " + order.notes.replace("Landmark: ", "") : ""
+          ].filter(Boolean).join("<br>");
 
       const created = order.created_at
         ? new Date(order.created_at).toLocaleString("en-IN")
