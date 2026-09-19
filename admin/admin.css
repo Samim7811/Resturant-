@@ -1000,3 +1000,281 @@ button,input,textarea,select{
   }
 }
 
+
+/* =========================================================
+   ORDERS PAGE DESIGN V1
+   Existing Supabase/order functions are NOT changed.
+   ========================================================= */
+
+.orders-container{
+  width:100%;
+  max-width:1200px;
+  margin:0 auto;
+  padding:4px 0 40px;
+}
+
+.orders-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:15px;
+  margin-bottom:20px;
+}
+
+.orders-header h2{
+  margin:0;
+  font-size:28px;
+  font-weight:800;
+  color:#222;
+}
+
+.orders-header p{
+  margin:5px 0 0;
+  color:#888;
+  font-size:14px;
+}
+
+.orders-refresh-btn{
+  border:0;
+  background:#fff;
+  color:#d97706;
+  border:1px solid #f2d3b5;
+  border-radius:10px;
+  padding:10px 15px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.orders-refresh-btn:hover{
+  background:#fff7ed;
+}
+
+/* STATUS TABS */
+
+.order-status-tabs{
+  display:flex;
+  gap:9px;
+  overflow-x:auto;
+  padding:4px 2px 14px;
+  margin-bottom:14px;
+  scrollbar-width:none;
+}
+
+.order-status-tabs::-webkit-scrollbar{
+  display:none;
+}
+
+.order-status-tab{
+  flex:0 0 auto;
+  border:1px solid #eadfd5;
+  background:#fff;
+  color:#555;
+  border-radius:25px;
+  padding:9px 14px;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  transition:.2s ease;
+}
+
+.order-status-tab span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:20px;
+  height:20px;
+  margin-left:4px;
+  padding:0 5px;
+  border-radius:20px;
+  background:#f3f3f3;
+  font-size:11px;
+}
+
+.order-status-tab:hover{
+  border-color:#e58a35;
+  color:#c76516;
+}
+
+.order-status-tab.active{
+  background:#e8751a;
+  border-color:#e8751a;
+  color:#fff;
+  box-shadow:0 4px 12px rgba(232,117,26,.22);
+}
+
+.order-status-tab.active span{
+  background:rgba(255,255,255,.2);
+  color:#fff;
+}
+
+/* SEARCH / FILTER */
+
+.orders-toolbar{
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) 190px 180px;
+  gap:12px;
+  margin-bottom:22px;
+}
+
+.orders-search-box{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:46px;
+  background:#fff;
+  border:1px solid #e9e1da;
+  border-radius:12px;
+  padding:0 13px;
+}
+
+.orders-search-box span{
+  font-size:17px;
+}
+
+.orders-search-box input{
+  width:100%;
+  border:0;
+  outline:0;
+  background:transparent;
+  font-size:14px;
+  color:#222;
+}
+
+.orders-search-box input::placeholder{
+  color:#aaa;
+}
+
+.orders-time-filter,
+.orders-sort-filter{
+  width:100%;
+  min-height:46px;
+  border:1px solid #e9e1da;
+  background:#fff;
+  border-radius:12px;
+  padding:0 12px;
+  outline:none;
+  color:#444;
+  font-weight:600;
+}
+
+/* LIST HEADER */
+
+.orders-list-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:5px 0 14px;
+}
+
+.orders-list-header h3{
+  margin:0;
+  font-size:18px;
+  color:#222;
+}
+
+.orders-list-header p{
+  margin:4px 0 0;
+  color:#999;
+  font-size:12px;
+}
+
+.orders-visible-count{
+  background:#fff3e8;
+  color:#c76516;
+  border:1px solid #f5d5b7;
+  border-radius:20px;
+  padding:7px 12px;
+  font-size:12px;
+  font-weight:800;
+}
+
+/* ORDER CARDS */
+
+#ordersList{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+#ordersList > div{
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+
+#ordersList > div:hover{
+  transform:translateY(-1px);
+}
+
+/* Existing order card typography */
+
+#ordersList strong{
+  color:#222;
+}
+
+#ordersList small{
+  color:#888;
+}
+
+/* STATUS SELECT */
+
+#ordersList select{
+  min-width:120px;
+  outline:none;
+  cursor:pointer;
+  font-size:12px;
+}
+
+/* MOBILE */
+
+@media(max-width:800px){
+
+  .orders-container{
+    padding:0 0 30px;
+  }
+
+  .orders-header h2{
+    font-size:23px;
+  }
+
+  .orders-toolbar{
+    grid-template-columns:1fr;
+  }
+
+  .orders-list-header{
+    align-items:flex-start;
+  }
+
+}
+
+@media(max-width:600px){
+
+  .orders-header{
+    align-items:flex-start;
+  }
+
+  .orders-refresh-btn{
+    padding:8px 11px;
+    font-size:12px;
+  }
+
+  .order-status-tabs{
+    margin-right:-4px;
+  }
+
+  .order-status-tab{
+    padding:8px 11px;
+    font-size:12px;
+  }
+
+  .orders-list-header h3{
+    font-size:16px;
+  }
+
+  .orders-visible-count{
+    padding:6px 9px;
+  }
+
+}
+
+/* END ORDERS PAGE DESIGN V1 */
+
