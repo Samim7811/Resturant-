@@ -555,7 +555,7 @@ function confirmDineIn() {
   }
 
   window.pendingOrderMeta = {
-    type: "Dine In",
+    type: "dine_in",
     name: document.getElementById("dineName")?.value.trim() || "",
     phone: document.getElementById("dinePhone")?.value.trim() || "",
     address: "",
@@ -596,7 +596,7 @@ function confirmDelivery() {
   }
 
   window.pendingOrderMeta = {
-    type: "Home Delivery",
+    type: "home_delivery",
     name,
     phone,
     address,
