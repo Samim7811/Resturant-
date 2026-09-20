@@ -868,6 +868,11 @@ function setupReservationForm() {
 
   if (!form) return;
 
+  if (!form.dataset.reservationSubmitBound) {
+    form.addEventListener("submit", bookTable);
+    form.dataset.reservationSubmitBound = "true";
+  }
+
   const dateInput = form.querySelector('input[type="date"]');
 
   if (dateInput) {
@@ -3998,3 +4003,4 @@ function completeReservationWithoutPayment(){
 
 /* ===== END RESERVATION TABLE PICKER V1 ===== */
 
+document.addEventListener("DOMContentLoaded", setupReservationForm);
