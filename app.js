@@ -139,17 +139,47 @@ async function bookTable(event) {
         return startMinutes < oldEnd && endMinutes > oldStart;
       });
     }
+  const forcedTableId = window.forcedReservationTableId || null;
 
-    // Pick the smallest suitable free table
-    const freeTable = tables.find(
+  const freeTable = forcedTableId
+    ? tables.find(table => String(table.id) === String(forcedTableId))
+    : null;
+
+  if (!forcedTableId) {
+    const availableTables = tables.filter(
       table => !hasOverlap(table.id)
     );
 
-    if (!freeTable) {
+    if (!availableTables.length) {
       throw new Error(
         "All suitable tables are already booked for this time. Please choose another time."
       );
     }
+
+    window.reservationContext = {
+      form,
+      name,
+      phone,
+      date,
+      time,
+      guests,
+      duration,
+      endMinutes,
+      restaurantId,
+      reservationFee: Number(window.reservationContext?.reservationFee || 0),
+      reservationRefundable:
+        window.reservationContext?.reservationRefundable !== false,
+      paymentLink: window.reservationContext?.paymentLink || "",
+      availableTables,
+      selectedTable: null
+    };
+
+    showReservationTablePicker();
+    return;
+  }
+
+  window.forcedReservationTableId = null;
+
 
     const hours = Math.floor(duration / 60);
     const minutes = duration % 60;
@@ -913,7 +943,38 @@ function showFinalOrderScreen(type, detail) {
 
       </div>
 
-      <div class="cart-summary">
+      
+      <div id="homeDeliveryPaymentBox"
+        style="margin:18px 0;padding:16px;border:1px solid #eee;border-radius:14px;background:#fafafa;">
+
+        <div style="font-weight:700;font-size:17px;margin-bottom:12px;">
+          💳 Payment Method
+        </div>
+
+        <label style="display:flex;align-items:center;gap:10px;padding:12px;background:#fff;border:1px solid #ddd;border-radius:10px;margin-bottom:8px;cursor:pointer;">
+          <input
+            type="radio"
+            name="homeDeliveryPaymentMethod"
+            value="cash"
+            checked
+            onchange="window.selectedHomeDeliveryPaymentMethod='cash'">
+          <span>💵 Cash Payment / Cash on Delivery</span>
+        </label>
+
+        <label
+          id="onlinePaymentOption"
+          style="display:none;align-items:center;gap:10px;padding:12px;background:#fff;border:1px solid #ddd;border-radius:10px;cursor:pointer;">
+          <input
+            type="radio"
+            name="homeDeliveryPaymentMethod"
+            value="online"
+            onchange="window.selectedHomeDeliveryPaymentMethod='online'">
+          <span>💳 Online Payment</span>
+        </label>
+
+      </div>
+
+<div class="cart-summary">
 
         ${cart.map(item => `
 
@@ -961,6 +1022,39 @@ function showFinalOrderScreen(type, detail) {
   `;
 
   document.body.appendChild(modal);
+  
+  window.selectedHomeDeliveryPaymentMethod = "cash";
+
+  const paymentBox =
+    document.getElementById("homeDeliveryPaymentBox");
+
+  if (paymentBox) {
+    if (type === "Home Delivery") {
+
+      fetch("/api/payment-methods")
+        .then(response => response.json())
+        .then(paymentInfo => {
+
+          const onlineOption =
+            document.getElementById("onlinePaymentOption");
+
+          if (
+            onlineOption &&
+            paymentInfo?.online_payment === true
+          ) {
+            onlineOption.style.display = "flex";
+          }
+
+        })
+        .catch(error => {
+          console.warn("Payment methods unavailable:", error);
+        });
+
+    } else {
+      paymentBox.style.display = "none";
+    }
+  }
+
 }
 
 
@@ -972,6 +1066,24 @@ async function placeDemoOrder() {
   }
 
   const meta = window.pendingOrderMeta || {};
+
+  const selectedPaymentMethod =
+    meta.type === "home_delivery"
+      ? (window.selectedHomeDeliveryPaymentMethod || "cash")
+      : "cash";
+
+  if (
+    meta.type === "home_delivery" &&
+    selectedPaymentMethod === "online"
+  ) {
+    alert(
+      "Online payment is selected, but payment has not been verified yet.\n\n" +
+      "Please complete online payment first."
+    );
+    return;
+  }
+
+
   const subtotal = cart.reduce(
     (sum, item) => sum + (Number(item.price) * Number(item.quantity || 1)),
     0
@@ -1012,7 +1124,10 @@ async function placeDemoOrder() {
       delivery_charge: 0,
       discount: 0,
       total: subtotal,
-      payment_method: "cash",
+      payment_method:
+        meta.type === "home_delivery"
+          ? (window.selectedHomeDeliveryPaymentMethod || "cash")
+          : "cash",
       payment_status: "pending",
       status: "pending",
       notes: meta.notes || ""
@@ -3146,3 +3261,189 @@ async function loadPopularDishes() {
 }
 
 document.addEventListener("DOMContentLoaded", loadPopularDishes);
+
+/* ===== RESERVATION TABLE PICKER V1 ===== */
+function showReservationTablePicker(){
+  const ctx = window.reservationContext;
+  if(!ctx || !ctx.availableTables?.length) return;
+
+  const old = document.getElementById("reservationTablePicker");
+  if(old) old.remove();
+
+  const popup = document.createElement("div");
+  popup.id = "reservationTablePicker";
+
+  popup.innerHTML = `
+    <div class="reservation-picker-box">
+      <button type="button" class="reservation-picker-close"
+        onclick="this.closest('#reservationTablePicker').remove()">×</button>
+
+      <h2>Choose Your Table</h2>
+      <p>Select an available table for your reservation.</p>
+
+      <div class="reservation-table-list">
+        ${ctx.availableTables.map(t => `
+          <button type="button"
+            class="reservation-table-option"
+            onclick="selectReservationTable('${t.id}')">
+            <strong>Table ${t.table_number}</strong>
+            <span>👥 Up to ${t.capacity} Guests</span>
+            ${t.table_type ? `<small>${t.table_type}</small>` : ""}
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+}
+
+function selectReservationTable(tableId){
+  const ctx = window.reservationContext;
+  if(!ctx) return;
+
+  const table = ctx.availableTables.find(
+    t => String(t.id) === String(tableId)
+  );
+
+  if(!table) return;
+
+  ctx.selectedTable = table;
+  window.forcedReservationTableId = table.id;
+
+  const picker = document.getElementById("reservationTablePicker");
+  if(picker) picker.remove();
+
+  const fee = Number(ctx.reservationFee || 0);
+  const paymentLink = String(ctx.paymentLink || "").trim();
+
+  const popup = document.createElement("div");
+  popup.id = "reservationPaymentPopup";
+
+  popup.innerHTML = `
+    <div class="reservation-picker-box">
+      <button type="button"
+        class="reservation-picker-close"
+        onclick="this.closest('#reservationPaymentPopup').remove()">×</button>
+
+      <div style="font-size:48px;">🍽️</div>
+      <h2>Table Selected</h2>
+
+      <p style="margin:8px 0;">
+        <b>Table ${table.table_number}</b>
+      </p>
+
+      <p style="color:#666;">
+        ${ctx.guests} Guest${ctx.guests > 1 ? "s" : ""}
+      </p>
+
+      ${
+        fee > 0
+          ? `
+            <div style="
+              margin:18px 0;
+              padding:16px;
+              border-radius:14px;
+              background:#fff7e8;
+              border:1px solid #f0d28a;
+            ">
+              <div style="font-size:14px;color:#777;">
+                Reservation Fee
+              </div>
+              <div style="font-size:30px;font-weight:700;">
+                ₹${fee.toFixed(2)}
+              </div>
+              <div style="font-size:13px;color:#087f23;margin-top:5px;">
+                ${ctx.reservationRefundable !== false
+                  ? "100% refundable"
+                  : "Non-refundable"}
+              </div>
+            </div>
+
+            ${
+              paymentLink
+                ? `
+                  <button
+                    type="button"
+                    class="primary-btn"
+                    onclick="openReservationPayment()">
+                    💳 Pay ₹${fee.toFixed(2)}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="primary-btn"
+                    style="margin-top:10px;background:#087f23;"
+                    onclick="completeReservationAfterPayment()">
+                    ✅ I Have Paid
+                  </button>
+                `
+                : `
+                  <div style="
+                    padding:12px;
+                    border-radius:10px;
+                    background:#fff0f0;
+                    color:#b00020;
+                    font-size:14px;
+                  ">
+                    Payment link is not configured by the restaurant.
+                  </div>
+                `
+            }
+          `
+          : `
+            <p style="margin:18px 0;color:#087f23;">
+              No reservation fee required.
+            </p>
+
+            <button
+              type="button"
+              class="primary-btn"
+              onclick="completeReservationWithoutPayment()">
+              ✅ Confirm Reservation
+            </button>
+          `
+      }
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+}
+
+function openReservationPayment(){
+  const ctx = window.reservationContext;
+  if(!ctx || !ctx.paymentLink) return;
+
+  window.open(ctx.paymentLink, "_blank");
+}
+
+function completeReservationAfterPayment(){
+  const ctx = window.reservationContext;
+  if(!ctx || !ctx.selectedTable) return;
+
+  window.forcedReservationTableId = ctx.selectedTable.id;
+
+  const popup = document.getElementById("reservationPaymentPopup");
+  if(popup) popup.remove();
+
+  if(ctx.form){
+    ctx.form.requestSubmit();
+  }
+}
+
+function completeReservationWithoutPayment(){
+  const ctx = window.reservationContext;
+  if(!ctx || !ctx.selectedTable) return;
+
+  window.forcedReservationTableId = ctx.selectedTable.id;
+
+  const popup = document.getElementById("reservationPaymentPopup");
+  if(popup) popup.remove();
+
+  if(ctx.form){
+    ctx.form.requestSubmit();
+  }
+}
+
+/* ===== END RESERVATION TABLE PICKER V1 ===== */
+
