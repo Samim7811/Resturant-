@@ -222,9 +222,7 @@ async function bookTable(event) {
       const insertResult = await supabaseClient
         .from("reservations")
         .insert(reservationPayload)
-        .select(
-          "id,reservation_date,reservation_time,end_time,guests,status"
-        )
+        .select("id,booking_number,reservation_date,reservation_time,end_time,guests,status")
         .single();
 
       if (insertResult.error) {
@@ -274,7 +272,7 @@ async function bookTable(event) {
       alert(
         "✅ Reservation Confirmed!\n\n" +
         "Booking ID: " +
-        insertResult.data.id +
+    insertResult.data.booking_number +
         "\n" +
         "Date: " +
         displayDate +
@@ -290,7 +288,24 @@ async function bookTable(event) {
         "Your reservation request has been received."
       );
 
-      form.reset();
+      // Save reservation reference for My Orders
+  const savedReservations = JSON.parse(
+    localStorage.getItem("restaurant_reservations") || "[]"
+  );
+
+  savedReservations.push({
+    id: insertResult.data.id,
+    booking_number: insertResult.data.booking_number,
+    type: "reservation",
+    saved_at: new Date().toISOString()
+  });
+
+  localStorage.setItem(
+    "restaurant_reservations",
+    JSON.stringify(savedReservations)
+  );
+
+  form.reset();
 
       if (
         typeof updateReservationTimeOptions ===
@@ -1716,9 +1731,24 @@ async function placeDemoOrder() {
       .from("order_items")
       .insert(itemPayload);
 
-    if (itemsResult.error) {
-      throw itemsResult.error;
-    }
+    $1
+
+  // Save order reference for My Orders
+  const savedOrders = JSON.parse(
+    localStorage.getItem("restaurant_orders") || "[]"
+  );
+
+  savedOrders.push({
+    display_id: orderResult.data.order_number,
+    db_id: orderResult.data.id,
+    type: meta.type === "dine_in" ? "dine_in" : "home_delivery",
+    saved_at: new Date().toISOString()
+  });
+
+  localStorage.setItem(
+    "restaurant_orders",
+    JSON.stringify(savedOrders)
+  );
 
     /* Clear cart only after successful database save */
     cart = [];
@@ -4004,3 +4034,524 @@ function completeReservationWithoutPayment(){
 /* ===== END RESERVATION TABLE PICKER V1 ===== */
 
 document.addEventListener("DOMContentLoaded", setupReservationForm);
+
+/* =========================================================
+   MY ORDERS - CUSTOMER PANEL
+   ========================================================= */
+
+async function openMyOrders() {
+  const oldModal = document.getElementById("myOrdersModal");
+  if (oldModal) oldModal.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "myOrdersModal";
+  modal.className = "my-orders-modal";
+
+  modal.innerHTML = `
+    <div class="my-orders-box">
+      <button class="my-orders-close" onclick="document.getElementById('myOrdersModal')?.remove()">×</button>
+
+      <div class="my-orders-header">
+        <div>
+          <h2>📋 My Orders</h2>
+          <p>Track your reservations and food orders</p>
+        </div>
+        <button class="my-orders-refresh" onclick="loadMyOrders()">↻ Refresh</button>
+      </div>
+
+      <div id="myOrdersLoading" class="my-orders-loading">
+        Loading your orders...
+      </div>
+
+      <div id="myOrdersList"></div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  await loadMyOrders();
+}
+
+async function loadMyOrders() {
+  const loading = document.getElementById("myOrdersLoading");
+  const list = document.getElementById("myOrdersList");
+
+  if (!list) return;
+
+  if (loading) loading.style.display = "block";
+  list.innerHTML = "";
+
+  let savedOrders = [];
+  let savedReservations = [];
+
+  try {
+    savedOrders = JSON.parse(
+      localStorage.getItem("restaurant_orders") || "[]"
+    );
+
+    savedReservations = JSON.parse(
+      localStorage.getItem("restaurant_reservations") || "[]"
+    );
+  } catch (error) {
+    console.error("MY ORDERS LOCAL STORAGE ERROR:", error);
+  }
+
+  const allItems = [
+    ...savedReservations.map(item => ({
+      ...item,
+      record_type: "reservation"
+    })),
+    ...savedOrders.map(item => ({
+      ...item,
+      record_type: "order"
+    }))
+  ];
+
+  if (!allItems.length) {
+    if (loading) loading.style.display = "none";
+
+    list.innerHTML = `
+      <div class="my-orders-empty">
+        <div class="my-orders-empty-icon">📋</div>
+        <h3>No Orders Yet</h3>
+        <p>Your reservations and food orders will appear here.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  try {
+    const restaurantResult = await supabaseClient
+      .from("restaurants")
+      .select("id,name,phone")
+      .eq("slug", "golden-thali")
+      .single();
+
+    if (restaurantResult.error) {
+      throw restaurantResult.error;
+    }
+
+    const restaurant = restaurantResult.data;
+
+    const reservationIds = savedReservations
+      .map(item => item.id)
+      .filter(Boolean);
+
+    const orderIds = savedOrders
+      .map(item => item.db_id)
+      .filter(Boolean);
+
+    let reservations = [];
+    let orders = [];
+
+    if (reservationIds.length) {
+      const reservationResult = await supabaseClient
+        .from("reservations")
+        .select(`
+          id,
+          booking_number,
+          reservation_date,
+          reservation_time,
+          end_time,
+          guests,
+          status,
+          notes,
+          table_id
+        `)
+        .in("id", reservationIds)
+        .eq("restaurant_id", restaurant.id);
+
+      if (reservationResult.error) {
+        throw reservationResult.error;
+      }
+
+      reservations = reservationResult.data || [];
+    }
+
+    if (orderIds.length) {
+      const orderResult = await supabaseClient
+        .from("orders")
+        .select(`
+          id,
+          order_number,
+          order_type,
+          status,
+          payment_status,
+          total,
+          created_at
+        `)
+        .in("id", orderIds)
+        .eq("restaurant_id", restaurant.id);
+
+      if (orderResult.error) {
+        throw orderResult.error;
+      }
+
+      orders = orderResult.data || [];
+    }
+
+    const reservationMap = {};
+    reservations.forEach(item => {
+      reservationMap[item.id] = item;
+    });
+
+    const orderMap = {};
+    orders.forEach(item => {
+      orderMap[item.id] = item;
+    });
+
+    const merged = allItems
+      .map(item => {
+        if (item.record_type === "reservation") {
+          return {
+            ...item,
+            db: reservationMap[item.id] || null
+          };
+        }
+
+        return {
+          ...item,
+          db: orderMap[item.db_id] || null
+        };
+      })
+      .sort((a, b) => {
+        const aTime =
+          a.db?.created_at ||
+          a.saved_at ||
+          a.db?.reservation_date ||
+          "";
+
+        const bTime =
+          b.db?.created_at ||
+          b.saved_at ||
+          b.db?.reservation_date ||
+          "";
+
+        return String(bTime).localeCompare(String(aTime));
+      });
+
+    if (loading) loading.style.display = "none";
+
+    list.innerHTML = merged.map(item => {
+      if (item.record_type === "reservation") {
+        return renderMyReservationCard(item);
+      }
+
+      return renderMyOrderCard(item, restaurant);
+    }).join("");
+
+  } catch (error) {
+    console.error("MY ORDERS LOAD ERROR:", error);
+
+    if (loading) loading.style.display = "none";
+
+    list.innerHTML = `
+      <div class="my-orders-error">
+        <div>⚠️</div>
+        <h3>Could not load your orders</h3>
+        <p>Please try again.</p>
+        <button onclick="loadMyOrders()">Try Again</button>
+      </div>
+    `;
+  }
+}
+
+function myOrdersEscape(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function myOrdersStatus(status) {
+  const value = String(status || "pending").toLowerCase();
+
+  const labels = {
+    pending: "Pending",
+    confirmed: "Confirmed",
+    preparing: "Preparing",
+    ready: "Ready",
+    served: "Served",
+    out_for_delivery: "Out for Delivery",
+    delivered: "Delivered",
+    completed: "Completed",
+    cancelled: "Cancelled"
+  };
+
+  return labels[value] || value.replace(/_/g, " ");
+}
+
+function myOrdersStatusClass(status) {
+  return "status-" +
+    String(status || "pending")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+}
+
+function renderMyReservationCard(item) {
+  const reservation = item.db;
+
+  if (!reservation) {
+    return `
+      <div class="my-order-card reservation-card">
+        <div class="my-order-top">
+          <span class="my-order-type">📅 Reservation</span>
+          <span class="my-order-status status-cancelled">Not Found</span>
+        </div>
+
+        <h3>Booking ID: ${myOrdersEscape(item.booking_number || "RES-PENDING")}</h3>
+        <p>Your reservation information could not be loaded.</p>
+      </div>
+    `;
+  }
+
+  const bookingNumber =
+    reservation.booking_number ||
+    item.booking_number ||
+    "RES-PENDING";
+
+  const reservationDate = reservation.reservation_date || "";
+
+  const reservationTime =
+    String(reservation.reservation_time || "").slice(0, 5);
+
+  const endTime =
+    String(reservation.end_time || "").slice(0, 5);
+
+  let formattedDate = reservationDate;
+
+  if (reservationDate) {
+    const d = new Date(reservationDate + "T00:00:00");
+
+    if (!Number.isNaN(d.getTime())) {
+      formattedDate = d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+    }
+  }
+
+  let canCancel = false;
+
+  if (
+    reservation.status !== "cancelled" &&
+    reservation.status !== "completed" &&
+    reservationDate &&
+    reservationTime
+  ) {
+    const reservationStart = new Date(
+      reservationDate + "T" + reservationTime + ":00"
+    );
+
+    const hoursLeft =
+      (reservationStart.getTime() - Date.now()) / 3600000;
+
+    canCancel = hoursLeft >= 6;
+  }
+
+  const cancelButton = canCancel
+    ? `
+      <button
+        class="my-order-cancel-btn"
+        onclick="cancelMyReservation('${myOrdersEscape(reservation.id)}')"
+      >
+        Cancel Reservation
+      </button>
+    `
+    : "";
+
+  const cancelInfo =
+    reservation.status === "cancelled"
+      ? "This reservation has been cancelled."
+      : !canCancel
+        ? "Reservations can be cancelled up to 6 hours before the reservation time."
+        : "";
+
+  return `
+    <div class="my-order-card reservation-card">
+
+      <div class="my-order-top">
+        <span class="my-order-type">📅 Reservation</span>
+        <span class="my-order-status ${myOrdersStatusClass(reservation.status)}">
+          ${myOrdersEscape(myOrdersStatus(reservation.status))}
+        </span>
+      </div>
+
+      <div class="my-order-id">
+        <small>Booking ID</small>
+        <strong>${myOrdersEscape(bookingNumber)}</strong>
+      </div>
+
+      <div class="my-order-info-grid">
+        <div>
+          <small>Date</small>
+          <strong>${myOrdersEscape(formattedDate)}</strong>
+        </div>
+
+        <div>
+          <small>Time</small>
+          <strong>
+            ${myOrdersEscape(reservationTime)}
+            ${endTime ? " - " + myOrdersEscape(endTime) : ""}
+          </strong>
+        </div>
+
+        <div>
+          <small>Guests</small>
+          <strong>${myOrdersEscape(reservation.guests)}</strong>
+        </div>
+      </div>
+
+      ${
+        cancelInfo
+          ? `<p class="my-order-note">${myOrdersEscape(cancelInfo)}</p>`
+          : ""
+      }
+
+      ${cancelButton}
+
+    </div>
+  `;
+}
+
+function renderMyOrderCard(item, restaurant) {
+  const order = item.db;
+
+  if (!order) {
+    return `
+      <div class="my-order-card">
+        <div class="my-order-top">
+          <span class="my-order-type">🍽️ Food Order</span>
+          <span class="my-order-status status-cancelled">Not Found</span>
+        </div>
+
+        <h3>Order ID: ${myOrdersEscape(item.display_id || "Pending")}</h3>
+        <p>This order could not be loaded.</p>
+      </div>
+    `;
+  }
+
+  const isDineIn = order.order_type === "dine_in";
+
+  const orderType = isDineIn
+    ? "🪑 Dine-In"
+    : "🛵 Home Delivery";
+
+  const status = myOrdersStatus(order.status);
+
+  const servicePhone = restaurant?.phone || "";
+
+  const serviceMessage = servicePhone
+    ? `To cancel your order, please call the restaurant service number: ${servicePhone}.`
+    : "To cancel your order, please call the restaurant service number.";
+
+  return `
+    <div class="my-order-card">
+
+      <div class="my-order-top">
+        <span class="my-order-type">${orderType}</span>
+
+        <span class="my-order-status ${myOrdersStatusClass(order.status)}">
+          ${myOrdersEscape(status)}
+        </span>
+      </div>
+
+      <div class="my-order-id">
+        <small>Order ID</small>
+        <strong>${myOrdersEscape(order.order_number || item.display_id || "")}</strong>
+      </div>
+
+      <div class="my-order-info-grid">
+
+        <div>
+          <small>Order Type</small>
+          <strong>${myOrdersEscape(
+            isDineIn ? "Dine-In" : "Home Delivery"
+          )}</strong>
+        </div>
+
+        <div>
+          <small>Total</small>
+          <strong>₹${myOrdersEscape(order.total ?? 0)}</strong>
+        </div>
+
+        <div>
+          <small>Payment</small>
+          <strong>${myOrdersEscape(
+            order.payment_status || "pending"
+          )}</strong>
+        </div>
+
+      </div>
+
+      <p class="my-order-note">
+        ${myOrdersEscape(serviceMessage)}
+      </p>
+
+    </div>
+  `;
+}
+
+async function cancelMyReservation(reservationId) {
+  if (!reservationId) return;
+
+  const confirmed = confirm(
+    "Are you sure you want to cancel this reservation?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("reservations")
+      .update({
+        status: "cancelled"
+      })
+      .eq("id", reservationId)
+      .select("id,status")
+      .single();
+
+    if (error) throw error;
+
+    if (!data) {
+      throw new Error("Reservation could not be cancelled.");
+    }
+
+    const savedReservations = JSON.parse(
+      localStorage.getItem("restaurant_reservations") || "[]"
+    );
+
+    const updatedReservations = savedReservations.map(item => {
+      if (item.id === reservationId) {
+        return {
+          ...item,
+          status: "cancelled"
+        };
+      }
+
+      return item;
+    });
+
+    localStorage.setItem(
+      "restaurant_reservations",
+      JSON.stringify(updatedReservations)
+    );
+
+    alert("Reservation cancelled successfully.");
+
+    await loadMyOrders();
+
+  } catch (error) {
+    console.error("MY RESERVATION CANCEL ERROR:", error);
+
+    alert(
+      "Could not cancel reservation.\n\n" +
+      (error.message || "Unknown error")
+    );
+  }
+}
+
