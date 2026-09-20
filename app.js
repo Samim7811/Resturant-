@@ -1731,7 +1731,6 @@ async function placeDemoOrder() {
       .from("order_items")
       .insert(itemPayload);
 
-    $1
 
   // Save order reference for My Orders
   const savedOrders = JSON.parse(
