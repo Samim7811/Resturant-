@@ -1747,3 +1747,53 @@ body{
 
 }
 
+
+/* ===== RESERVATION TIME PICKER V2 ===== */
+#reservationTimePicker{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(0,0,0,.65);
+  overflow-y:auto;
+}
+
+#reservationTimePicker .reservation-picker-box{
+  width:min(520px,100%);
+  max-height:90vh;
+  overflow-y:auto;
+  background:#fff;
+  border-radius:22px;
+  padding:22px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+  position:relative;
+}
+
+#reservationTimePicker .reservation-picker-close{
+  position:absolute;
+  top:12px;
+  right:12px;
+  width:38px;
+  height:38px;
+  border:0;
+  border-radius:50%;
+  background:#f3f3f3;
+  font-size:24px;
+  cursor:pointer;
+}
+
+#reservationTimePicker .reservation-time-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  max-height:60vh;
+  overflow-y:auto;
+}
+
+#reservationTimePicker .reservation-time-list button{
+  font-family:inherit;
+}
+
