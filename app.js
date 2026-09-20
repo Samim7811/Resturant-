@@ -4629,3 +4629,40 @@ async function loadVisitUsInfo() {
 }
 
 document.addEventListener("DOMContentLoaded", loadVisitUsInfo);
+
+/* ===== DYNAMIC RESTAURANT BRAND PNG ===== */
+async function loadRestaurantBranding() {
+  try {
+    const result = await supabaseClient
+      .from("restaurants")
+      .select("logo_url")
+      .eq("slug", "golden-thali")
+      .single();
+
+    const logo = document.getElementById("restaurantBrandLogo");
+    const fallback = document.getElementById("restaurantBrandFallback");
+
+    if (!logo || !fallback) return;
+
+    if (result.error) {
+      console.error("Brand logo load error:", result.error);
+      return;
+    }
+
+    const logoUrl = result.data?.logo_url || "";
+
+    if (logoUrl) {
+      logo.src = logoUrl;
+      logo.style.display = "block";
+      fallback.style.display = "none";
+    } else {
+      logo.removeAttribute("src");
+      logo.style.display = "none";
+      fallback.style.display = "flex";
+    }
+  } catch (error) {
+    console.error("Brand logo error:", error);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", loadRestaurantBranding);

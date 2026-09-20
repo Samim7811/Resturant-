@@ -423,6 +423,49 @@ function fillRestaurantSettings(r){
 }
 
 
+
+async function uploadRestaurantBrandPng(file) {
+  if (!file || !currentRestaurant?.id) {
+    return currentRestaurant?.logo_url || "";
+  }
+
+  if (file.type !== "image/png") {
+    throw new Error("Please select a PNG image only.");
+  }
+
+  if (file.size > 1024 * 1024) {
+    throw new Error("PNG file must be smaller than 1 MB.");
+  }
+
+  const filePath = `${currentRestaurant.id}/brand.png`;
+
+  const uploadResult = await supabaseClient
+    .storage
+    .from("restaurant-branding")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: true,
+      contentType: "image/png"
+    });
+
+  if (uploadResult.error) {
+    throw uploadResult.error;
+  }
+
+  const publicResult = supabaseClient
+    .storage
+    .from("restaurant-branding")
+    .getPublicUrl(filePath);
+
+  const publicUrl = publicResult?.data?.publicUrl || "";
+
+  if (!publicUrl) {
+    throw new Error("Could not create PNG public URL.");
+  }
+
+  return publicUrl + "?v=" + Date.now();
+}
+
 async function saveSettings(e){
 
   e.preventDefault();
@@ -474,8 +517,19 @@ async function saveSettings(e){
   };
 
 
-  const updateData = {
+  
+    let brandLogoUrl = currentRestaurant.logo_url || "";
 
+    const brandFile =
+      document.getElementById("restaurantBrandPng")?.files?.[0];
+
+    if (brandFile) {
+      brandLogoUrl = await uploadRestaurantBrandPng(brandFile);
+    }
+
+const updateData = {
+
+    logo_url: brandLogoUrl,
     name:
       document.getElementById('restaurantName').value.trim(),
 
