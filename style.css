@@ -1797,3 +1797,414 @@ body{
   font-family:inherit;
 }
 
+
+/* MY ORDERS BUTTON */
+.my-orders-btn{
+  border:0;
+  cursor:pointer;
+  background:#171717;
+  color:#fff;
+  padding:13px 18px;
+  border-radius:30px;
+  font-weight:700;
+  font-size:13px;
+  white-space:nowrap;
+}
+.my-orders-btn:hover{
+  opacity:.9;
+}
+@media(max-width:800px){
+  .my-orders-btn{
+    padding:10px 12px;
+    font-size:12px;
+  }
+}
+
+/* =========================================================
+   MY ORDERS CUSTOMER PANEL
+   ========================================================= */
+
+.my-orders-modal{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  background:rgba(0,0,0,.68);
+  overflow-y:auto;
+}
+
+.my-orders-box{
+  width:min(620px,100%);
+  max-height:92vh;
+  overflow-y:auto;
+  background:#fff;
+  border-radius:24px;
+  padding:20px;
+  position:relative;
+  box-shadow:0 25px 70px rgba(0,0,0,.35);
+}
+
+.my-orders-close{
+  position:absolute;
+  top:12px;
+  right:12px;
+  width:40px;
+  height:40px;
+  border:0;
+  border-radius:50%;
+  background:#f1f1f1;
+  color:#222;
+  font-size:26px;
+  line-height:1;
+  cursor:pointer;
+}
+
+.my-orders-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding-right:45px;
+  margin-bottom:18px;
+}
+
+.my-orders-header h2{
+  margin:0;
+  font-size:25px;
+  color:#171717;
+}
+
+.my-orders-header p{
+  margin:5px 0 0;
+  color:#777;
+  font-size:13px;
+}
+
+.my-orders-refresh{
+  border:0;
+  background:#171717;
+  color:#fff;
+  padding:10px 14px;
+  border-radius:20px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.my-orders-loading{
+  text-align:center;
+  padding:35px 10px;
+  color:#777;
+}
+
+.my-order-card{
+  background:#fff;
+  border:1px solid #e8e8e8;
+  border-radius:18px;
+  padding:17px;
+  margin-bottom:14px;
+  box-shadow:0 5px 18px rgba(0,0,0,.06);
+}
+
+.my-order-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:14px;
+}
+
+.my-order-type{
+  font-weight:800;
+  color:#222;
+  font-size:14px;
+}
+
+.my-order-status{
+  padding:6px 11px;
+  border-radius:20px;
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+  background:#eee;
+  color:#555;
+}
+
+.status-pending{
+  background:#fff3cd;
+  color:#856404;
+}
+
+.status-confirmed{
+  background:#dbeafe;
+  color:#1d4ed8;
+}
+
+.status-preparing{
+  background:#fef3c7;
+  color:#92400e;
+}
+
+.status-ready{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.status-served,
+.status-completed,
+.status-delivered{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.status-out-for-delivery{
+  background:#e0e7ff;
+  color:#3730a3;
+}
+
+.status-cancelled{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.my-order-id{
+  background:#f8f8f8;
+  border-radius:12px;
+  padding:11px 13px;
+  margin-bottom:14px;
+}
+
+.my-order-id small,
+.my-order-info-grid small{
+  display:block;
+  color:#888;
+  font-size:11px;
+  margin-bottom:3px;
+}
+
+.my-order-id strong{
+  display:block;
+  color:#111;
+  font-size:16px;
+  letter-spacing:.3px;
+}
+
+.my-order-info-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+
+.my-order-info-grid > div{
+  background:#fafafa;
+  border-radius:11px;
+  padding:10px;
+}
+
+.my-order-info-grid strong{
+  color:#222;
+  font-size:13px;
+  word-break:break-word;
+}
+
+.my-order-note{
+  margin:14px 0 0;
+  padding:11px 12px;
+  background:#fff8e8;
+  border-radius:11px;
+  color:#765d22;
+  font-size:12px;
+  line-height:1.5;
+}
+
+.my-order-cancel-btn{
+  width:100%;
+  margin-top:13px;
+  padding:12px;
+  border:1px solid #dc2626;
+  border-radius:12px;
+  background:#fff;
+  color:#dc2626;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.my-order-cancel-btn:active{
+  transform:scale(.98);
+}
+
+.my-orders-empty,
+.my-orders-error{
+  text-align:center;
+  padding:45px 20px;
+  color:#666;
+}
+
+.my-orders-empty-icon{
+  font-size:48px;
+  margin-bottom:10px;
+}
+
+.my-orders-empty h3,
+.my-orders-error h3{
+  margin:5px 0;
+  color:#222;
+}
+
+.my-orders-empty p,
+.my-orders-error p{
+  margin:6px 0 18px;
+  font-size:13px;
+}
+
+.my-orders-error button{
+  border:0;
+  background:#171717;
+  color:#fff;
+  padding:11px 18px;
+  border-radius:20px;
+  font-weight:700;
+}
+
+@media(max-width:520px){
+
+  .my-orders-modal{
+    padding:8px;
+    align-items:flex-end;
+  }
+
+  .my-orders-box{
+    width:100%;
+    max-height:94vh;
+    border-radius:22px 22px 0 0;
+    padding:17px;
+  }
+
+  .my-orders-header{
+    align-items:flex-start;
+  }
+
+  .my-orders-header h2{
+    font-size:22px;
+  }
+
+  .my-orders-refresh{
+    padding:8px 11px;
+    font-size:11px;
+  }
+
+  .my-order-card{
+    padding:14px;
+    border-radius:16px;
+  }
+
+  .my-order-info-grid{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .my-order-info-grid > div:last-child{
+    grid-column:1 / -1;
+  }
+
+}
+
+
+/* ===== HEADER BUTTONS FINAL FIX ===== */
+.header .my-orders-btn,
+.header .book-btn {
+  background: #efa928 !important;
+  color: #17130e !important;
+  border: 0 !important;
+  border-radius: 30px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+}
+
+.header .my-orders-btn {
+  padding: 13px 18px !important;
+  gap: 6px !important;
+}
+
+.header .book-btn {
+  padding: 13px 20px !important;
+  min-width: 130px !important;
+}
+
+.header .my-orders-btn:hover,
+.header .book-btn:hover {
+  background: #f7b52f !important;
+  color: #17130e !important;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 800px) {
+  .header {
+    gap: 8px !important;
+  }
+
+  .header .my-orders-btn {
+    padding: 11px 14px !important;
+    font-size: 12px !important;
+  }
+
+  .header .book-btn {
+    padding: 11px 14px !important;
+    min-width: 105px !important;
+    font-size: 12px !important;
+  }
+}
+
+
+/* ===== SMALL MOBILE HEADER BUTTONS ===== */
+@media (max-width: 800px) {
+  .header .my-orders-btn,
+  .header .book-btn {
+    padding: 9px 11px !important;
+    min-width: 0 !important;
+    height: 42px !important;
+    border-radius: 22px !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;
+  }
+
+  .header .my-orders-btn {
+    gap: 4px !important;
+  }
+
+  .header .book-btn {
+    width: auto !important;
+  }
+}
+
+
+/* ===== SMALL HEADER ACTION BUTTONS ONLY ===== */
+@media (max-width: 800px) {
+  .header .my-orders-btn,
+  .header .book-btn {
+    width: auto !important;
+    min-width: 0 !important;
+    height: 34px !important;
+    padding: 7px 9px !important;
+    border-radius: 18px !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    flex: 0 0 auto !important;
+  }
+
+  .header .my-orders-btn {
+    gap: 3px !important;
+  }
+
+  .header .book-btn {
+    min-width: 78px !important;
+  }
+}
+
