@@ -1673,13 +1673,15 @@ function renderReservations(){
             </span>
 
             ${
-              r.customer_email
-              ? `<span>✉️ ${escapeReservationText(r.customer_email)}</span>`
-              : ""
-            }
-          </div>
+          r.customer_email
+            ? `<span>✉️ ${escapeReservationText(r.customer_email)}</span>`
+            : ""
+        }
 
-          <div class="reservation-info">
+        <div class="reservation-booking-id">
+          <small>Booking ID</small>
+          <strong>${escapeReservationText(r.booking_number || "Pending")}</strong>
+        </div>
 
             <div>
               <small>Date</small>
