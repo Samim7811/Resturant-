@@ -30,35 +30,35 @@ async function bookTable(event) {
   event.preventDefault();
 
   const form = event.target;
-  const name = form.querySelector('input[type="text"]')?.value.trim() || "";
-  const phone = form.querySelector('input[type="tel"]')?.value.trim() || "";
-  const date = form.querySelector('input[type="date"]')?.value || "";
-  const time = form.querySelector('input[type="time"]')?.value || "";
+
+  const name =
+    form.querySelector('input[type="text"]')?.value.trim() || "";
+
+  const phone =
+    form.querySelector('input[type="tel"]')?.value.trim() || "";
+
+  const date =
+    form.querySelector('input[type="date"]')?.value || "";
+
+  const timeInput =
+    form.querySelector('input[type="time"]');
+
+  const time = timeInput?.value || "";
+
   const guests = Number(
     form.querySelector('select[name="guests"]')?.value ||
-    form.querySelectorAll("select")[0]?.value ||
+    form.querySelectorAll("select")[1]?.value ||
     0
   );
+
   const duration = Number(
     form.querySelector('select[name="duration"]')?.value ||
-    form.querySelectorAll("select")[1]?.value ||
+    form.querySelectorAll("select")[0]?.value ||
     60
   );
 
-  if (!name || !phone || !date || !time || !guests) {
+  if (!name || !phone || !date || !guests) {
     alert("Please fill all reservation details.");
-    return;
-  }
-
-  const startMinutes =
-    Number(time.split(":")[0]) * 60 +
-    Number(time.split(":")[1]);
-
-  const endMinutes = startMinutes + duration;
-
-  // Restaurant reservation window: 8:00 AM - 10:00 PM
-  if (startMinutes < 8 * 60 || endMinutes > 22 * 60) {
-    alert("Reservation time must be between 8:00 AM and 10:00 PM.");
     return;
   }
 
@@ -83,26 +83,28 @@ async function bookTable(event) {
 
     const restaurantId = restaurantResult.data.id;
 
-    // Get available tables
     const tablesResult = await supabaseClient
       .from("restaurant_tables")
-      .select("id,table_number,capacity,status")
+      .select("id,table_number,capacity,table_type,status")
       .eq("restaurant_id", restaurantId)
       .eq("status", "available")
       .gte("capacity", guests)
       .order("capacity", { ascending: true });
 
-    if (tablesResult.error) throw tablesResult.error;
+    if (tablesResult.error) {
+      throw tablesResult.error;
+    }
 
     const tables = tablesResult.data || [];
 
     if (!tables.length) {
       throw new Error(
-        "No suitable table is available for " + guests + " guests."
+        "No suitable table is available for " +
+        guests +
+        " guests."
       );
     }
 
-    // Get all non-cancelled reservations for the selected date
     const reservationResult = await supabaseClient
       .from("reservations")
       .select(
@@ -121,39 +123,249 @@ async function bookTable(event) {
     function toMinutes(value) {
       if (!value) return 0;
 
-      const parts = String(value).slice(0, 5).split(":");
+      const parts = String(value)
+        .slice(0, 5)
+        .split(":");
 
-      return Number(parts[0]) * 60 + Number(parts[1]);
+      return (
+        Number(parts[0]) * 60 +
+        Number(parts[1])
+      );
     }
 
-    function hasOverlap(tableId) {
+    function hasOverlap(tableId, startMinutes, endMinutes) {
       return existing.some(r => {
-        if (r.table_id !== tableId) return false;
+        if (String(r.table_id) !== String(tableId)) {
+          return false;
+        }
 
         const oldStart = toMinutes(r.reservation_time);
-        const oldEnd =
-          r.end_time
-            ? toMinutes(r.end_time)
-            : oldStart + Number(r.duration_minutes || 60);
 
-        return startMinutes < oldEnd && endMinutes > oldStart;
+        const oldEnd = r.end_time
+          ? toMinutes(r.end_time)
+          : oldStart + Number(r.duration_minutes || 60);
+
+        return (
+          startMinutes < oldEnd &&
+          endMinutes > oldStart
+        );
       });
     }
-  const forcedTableId = window.forcedReservationTableId || null;
 
-  const freeTable = forcedTableId
-    ? tables.find(table => String(table.id) === String(forcedTableId))
-    : null;
+    /*
+     * If a table was already automatically selected
+     * after the customer chose a time, verify it again.
+     */
+    const forcedTableId =
+      window.forcedReservationTableId || null;
 
-  if (!forcedTableId) {
-    const availableTables = tables.filter(
-      table => !hasOverlap(table.id)
-    );
-
-    if (!availableTables.length) {
-      throw new Error(
-        "All suitable tables are already booked for this time. Please choose another time."
+    if (forcedTableId && time) {
+      const selectedTable = tables.find(
+        table =>
+          String(table.id) === String(forcedTableId)
       );
+
+      if (!selectedTable) {
+        throw new Error(
+          "The selected table is no longer available."
+        );
+      }
+
+      const startMinutes =
+        toMinutes(time);
+
+      const endMinutes =
+        startMinutes + duration;
+
+      if (hasOverlap(
+        selectedTable.id,
+        startMinutes,
+        endMinutes
+      )) {
+        window.forcedReservationTableId = null;
+
+        throw new Error(
+          "That time was just booked by another customer. Please choose another available time."
+        );
+      }
+
+      const endHour =
+        Math.floor(endMinutes / 60);
+
+      const endMinute =
+        endMinutes % 60;
+
+      const endTime =
+        String(endHour).padStart(2, "0") +
+        ":" +
+        String(endMinute).padStart(2, "0") +
+        ":00";
+
+      const reservationPayload = {
+        restaurant_id: restaurantId,
+        table_id: selectedTable.id,
+        customer_name: name,
+        customer_phone: phone,
+        reservation_date: date,
+        reservation_time: time + ":00",
+        duration_minutes: duration,
+        end_time: endTime,
+        guests: guests,
+        status: "pending",
+        notes:
+          "Duration: " +
+          Math.floor(duration / 60) +
+          " hour" +
+          (duration > 60 ? "s" : "")
+      };
+
+      const insertResult = await supabaseClient
+        .from("reservations")
+        .insert(reservationPayload)
+        .select(
+          "id,reservation_date,reservation_time,end_time,guests,status"
+        )
+        .single();
+
+      if (insertResult.error) {
+        throw insertResult.error;
+      }
+
+      window.forcedReservationTableId = null;
+
+      const reservedDate =
+        new Date(date + "T00:00:00");
+
+      const displayDate =
+        reservedDate.toLocaleDateString(
+          "en-IN",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric"
+          }
+        );
+
+      const displayTime =
+        new Date(
+          "2000-01-01T" + time + ":00"
+        ).toLocaleTimeString(
+          "en-IN",
+          {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true
+          }
+        );
+
+      const displayEndTime =
+        new Date(
+          "2000-01-01T" +
+          endTime
+        ).toLocaleTimeString(
+          "en-IN",
+          {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true
+          }
+        );
+
+      alert(
+        "✅ Reservation Confirmed!\n\n" +
+        "Booking ID: " +
+        insertResult.data.id +
+        "\n" +
+        "Date: " +
+        displayDate +
+        "\n" +
+        "Time: " +
+        displayTime +
+        " - " +
+        displayEndTime +
+        "\n" +
+        "Guests: " +
+        guests +
+        "\n\n" +
+        "Your reservation request has been received."
+      );
+
+      form.reset();
+
+      if (
+        typeof updateReservationTimeOptions ===
+        "function"
+      ) {
+        updateReservationTimeOptions();
+      }
+
+      return;
+    }
+
+    /*
+     * First submission:
+     * calculate every possible reservation time.
+     * Customer will see only time + capacity + type.
+     */
+    const startOfDay = 8 * 60;
+    const endOfDay = 22 * 60;
+
+    const latestStart =
+      endOfDay - duration;
+
+    const slots = [];
+
+    for (
+      let startMinutes = startOfDay;
+      startMinutes <= latestStart;
+      startMinutes += 30
+    ) {
+      const slotEnd =
+        startMinutes + duration;
+
+      const availableTables =
+        tables.filter(table =>
+          !hasOverlap(
+            table.id,
+            startMinutes,
+            slotEnd
+          )
+        );
+
+      const uniqueTypes = [];
+
+      availableTables.forEach(table => {
+        const capacity =
+          Number(table.capacity || 0);
+
+        const type =
+          String(
+            table.table_type ||
+            "Standard Table"
+          );
+
+        const key =
+          capacity + "|" + type;
+
+        if (
+          !uniqueTypes.some(
+            item => item.key === key
+          )
+        ) {
+          uniqueTypes.push({
+            key,
+            capacity,
+            type
+          });
+        }
+      });
+
+      slots.push({
+        startMinutes,
+        endMinutes: slotEnd,
+        availableTables,
+        uniqueTypes
+      });
     }
 
     window.reservationContext = {
@@ -161,137 +373,476 @@ async function bookTable(event) {
       name,
       phone,
       date,
-      time,
       guests,
       duration,
-      endMinutes,
       restaurantId,
-      reservationFee: Number(window.reservationContext?.reservationFee || 0),
+      availableTables: tables,
+      reservationFee:
+        Number(
+          window.reservationContext?.reservationFee ||
+          0
+        ),
       reservationRefundable:
         window.reservationContext?.reservationRefundable !== false,
-      paymentLink: window.reservationContext?.paymentLink || "",
-      availableTables,
-      selectedTable: null
+      paymentLink:
+        window.reservationContext?.paymentLink || "",
+      selectedTable: null,
+      slots
     };
 
-    showReservationTablePicker();
-    return;
-  }
+    window.forcedReservationTableId = null;
 
-  window.forcedReservationTableId = null;
-
-
-    const hours = Math.floor(duration / 60);
-    const minutes = duration % 60;
-
-    const endHour = Math.floor(endMinutes / 60);
-    const endMinute = endMinutes % 60;
-
-    const endTime =
-      String(endHour).padStart(2, "0") +
-      ":" +
-      String(endMinute).padStart(2, "0") +
-      ":00";
-
-    const reservationPayload = {
-      restaurant_id: restaurantId,
-      table_id: freeTable.id,
-      customer_name: name,
-      customer_phone: phone,
-      reservation_date: date,
-      reservation_time: time + ":00",
-      duration_minutes: duration,
-      end_time: endTime,
-      guests: guests,
-      status: "pending",
-      notes:
-        "Duration: " +
-        (hours ? hours + " hour" + (hours > 1 ? "s" : "") : "") +
-        (minutes ? " " + minutes + " minutes" : "")
-    };
-
-    const insertResult = await supabaseClient
-      .from("reservations")
-      .insert(reservationPayload)
-      .select(
-        "id,reservation_date,reservation_time,end_time,guests,status"
-      )
-      .single();
-
-    if (insertResult.error) {
-      throw insertResult.error;
-    }
-
-    const reservedDate = new Date(date + "T00:00:00");
-
-    const displayDate = reservedDate.toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-      }
-    );
-
-    const displayTime = new Date(
-      "2000-01-01T" + time + ":00"
-    ).toLocaleTimeString(
-      "en-IN",
-      {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true
-      }
-    );
-
-    const displayEndTime = new Date(
-      "2000-01-01T" + endTime
-    ).toLocaleTimeString(
-      "en-IN",
-      {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true
-      }
-    );
-
-    alert(
-      "✅ Reservation Confirmed!\n\n" +
-      "Table: " + freeTable.table_number + "\n" +
-      "Date: " + displayDate + "\n" +
-      "Time: " + displayTime + " - " + displayEndTime + "\n" +
-      "Guests: " + guests + "\n\n" +
-      "Your reservation request has been received."
-    );
-
-    form.reset();
-
-    const dateInput = form.querySelector('input[type="date"]');
-
-    if (dateInput) {
-      dateInput.min = new Date()
-        .toISOString()
-        .split("T")[0];
-    }
-
-    if (typeof updateReservationTimeOptions === "function") {
-      updateReservationTimeOptions();
-    }
+    showReservationTimePicker();
 
   } catch (error) {
-    console.error("USER RESERVATION ERROR:", error);
-
-    alert(
-      "❌ Reservation could not be completed.\n\n" +
-      (error.message || "Unknown error")
+    console.error(
+      "RESERVATION AVAILABILITY ERROR:",
+      error
     );
 
+    alert(
+      "❌ Reservation could not be checked.\n\n" +
+      (error.message || "Unknown error")
+    );
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = "Confirm Reservation";
+      button.textContent = "Check Availability";
     }
   }
+}
+
+function showReservationTimePicker() {
+  const ctx = window.reservationContext;
+
+  if (!ctx || !ctx.slots) return;
+
+  const old =
+    document.getElementById(
+      "reservationTimePicker"
+    );
+
+  if (old) old.remove();
+
+  const popup =
+    document.createElement("div");
+
+  popup.id =
+    "reservationTimePicker";
+
+  function formatTime(totalMinutes) {
+    const h =
+      Math.floor(totalMinutes / 60);
+
+    const m =
+      totalMinutes % 60;
+
+    const d =
+      new Date(
+        "2000-01-01T" +
+        String(h).padStart(2, "0") +
+        ":" +
+        String(m).padStart(2, "0") +
+        ":00"
+      );
+
+    return d.toLocaleTimeString(
+      "en-IN",
+      {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      }
+    );
+  }
+
+  const escapeText = value =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  popup.innerHTML = `
+    <div class="reservation-picker-box">
+
+      <button
+        type="button"
+        class="reservation-picker-close"
+        onclick="this.closest('#reservationTimePicker').remove()">
+        ×
+      </button>
+
+      <div style="font-size:42px;">📅</div>
+
+      <h2>Choose Reservation Time</h2>
+
+      <p style="color:#666;margin-bottom:18px;">
+        ${escapeText(ctx.guests)}
+        Guest${ctx.guests > 1 ? "s" : ""}
+        •
+        ${ctx.duration} Minutes
+      </p>
+
+      <div
+        class="reservation-time-list"
+        style="
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+          max-height:55vh;
+          overflow-y:auto;
+        "
+      >
+
+        ${ctx.slots.map(slot => {
+
+          const available =
+            slot.availableTables.length > 0;
+
+          const time =
+            formatTime(
+              slot.startMinutes
+            );
+
+          const endTime =
+            formatTime(
+              slot.endMinutes
+            );
+
+          if (!available) {
+            return `
+              <div
+                style="
+                  padding:15px;
+                  border-radius:14px;
+                  background:#fff1f1;
+                  border:1px solid #f0caca;
+                  opacity:.85;
+                "
+              >
+                <div
+                  style="
+                    font-size:17px;
+                    font-weight:700;
+                    color:#b00020;
+                  "
+                >
+                  🔴 ${time}
+                </div>
+
+                <div
+                  style="
+                    margin-top:4px;
+                    font-size:13px;
+                    color:#b00020;
+                  "
+                >
+                  Fully Booked
+                  • Until ${endTime}
+                </div>
+              </div>
+            `;
+          }
+
+          return `
+            <button
+              type="button"
+              onclick="selectReservationTime(${slot.startMinutes})"
+              style="
+                width:100%;
+                text-align:left;
+                padding:15px;
+                border-radius:14px;
+                border:1px solid #cfe8d2;
+                background:#f3fff4;
+                cursor:pointer;
+              "
+            >
+
+              <div
+                style="
+                  font-size:17px;
+                  font-weight:700;
+                  color:#087f23;
+                "
+              >
+                🟢 ${time}
+              </div>
+
+              <div
+                style="
+                  margin-top:4px;
+                  font-size:13px;
+                  color:#666;
+                "
+              >
+                ${time} - ${endTime}
+              </div>
+
+              <div
+                style="
+                  margin-top:8px;
+                  display:flex;
+                  flex-wrap:wrap;
+                  gap:6px;
+                "
+              >
+                ${slot.uniqueTypes.map(item => `
+                  <span
+                    style="
+                      padding:5px 9px;
+                      border-radius:999px;
+                      background:#fff;
+                      border:1px solid #ddd;
+                      font-size:12px;
+                      color:#444;
+                    "
+                  >
+                    👥 Up to ${escapeText(item.capacity)}
+                    •
+                    🍽️ ${escapeText(item.type)}
+                  </span>
+                `).join("")}
+              </div>
+
+              <div
+                style="
+                  margin-top:8px;
+                  font-size:12px;
+                  color:#087f23;
+                "
+              >
+                ${slot.availableTables.length}
+                suitable table${slot.availableTables.length > 1 ? "s" : ""}
+                available
+              </div>
+
+            </button>
+          `;
+        }).join("")}
+
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+}
+
+function selectReservationTime(startMinutes) {
+  const ctx = window.reservationContext;
+
+  if (!ctx || !ctx.slots) return;
+
+  const slot =
+    ctx.slots.find(
+      item =>
+        item.startMinutes ===
+        Number(startMinutes)
+    );
+
+  if (
+    !slot ||
+    !slot.availableTables.length
+  ) {
+    alert(
+      "This time is no longer available. Please choose another time."
+    );
+    return;
+  }
+
+  /*
+   * Automatically choose the smallest suitable
+   * available table. Customer never sees table number.
+   */
+  const selectedTable =
+    [...slot.availableTables]
+      .sort(
+        (a, b) =>
+          Number(a.capacity) -
+          Number(b.capacity)
+      )[0];
+
+  ctx.selectedTable =
+    selectedTable;
+
+  window.forcedReservationTableId =
+    selectedTable.id;
+
+  const time =
+    String(
+      Math.floor(startMinutes / 60)
+    ).padStart(2, "0") +
+    ":" +
+    String(
+      startMinutes % 60
+    ).padStart(2, "0");
+
+  const timeInput =
+    ctx.form?.querySelector(
+      'input[type="time"]'
+    );
+
+  if (timeInput) {
+    timeInput.value = time;
+  }
+
+  const picker =
+    document.getElementById(
+      "reservationTimePicker"
+    );
+
+  if (picker) picker.remove();
+
+  const fee =
+    Number(ctx.reservationFee || 0);
+
+  if (fee > 0) {
+    if (
+      typeof openReservationPaymentPopup ===
+      "function"
+    ) {
+      openReservationPaymentPopup();
+    } else {
+      alert(
+        "Reservation fee is configured, but payment screen is not available."
+      );
+    }
+
+    return;
+  }
+
+  /*
+   * No fee:
+   * submit again and bookTable() will verify
+   * the automatically selected table one more time.
+   */
+  if (ctx.form) {
+    ctx.form.requestSubmit();
+  }
+}
+
+function openReservationPaymentPopup() {
+  const ctx = window.reservationContext;
+
+  if (!ctx || !ctx.selectedTable) return;
+
+  const old =
+    document.getElementById(
+      "reservationPaymentPopup"
+    );
+
+  if (old) old.remove();
+
+  const popup =
+    document.createElement("div");
+
+  popup.id =
+    "reservationPaymentPopup";
+
+  popup.innerHTML = `
+    <div class="reservation-picker-box">
+
+      <button
+        type="button"
+        class="reservation-picker-close"
+        onclick="this.closest('#reservationPaymentPopup').remove()">
+        ×
+      </button>
+
+      <div style="font-size:48px;">🍽️</div>
+
+      <h2>Reservation Fee</h2>
+
+      <p style="margin:10px 0;color:#666;">
+        Your selected reservation time is ready.
+      </p>
+
+      <div
+        style="
+          margin:18px 0;
+          padding:16px;
+          border-radius:14px;
+          background:#fff7e8;
+          border:1px solid #f0d28a;
+        "
+      >
+        <div
+          style="
+            font-size:14px;
+            color:#777;
+          "
+        >
+          Reservation Fee
+        </div>
+
+        <div
+          style="
+            font-size:30px;
+            font-weight:700;
+          "
+        >
+          ₹${ctx.reservationFee.toFixed(2)}
+        </div>
+
+        <div
+          style="
+            font-size:13px;
+            color:#087f23;
+            margin-top:5px;
+          "
+        >
+          ${
+            ctx.reservationRefundable !== false
+              ? "100% refundable"
+              : "Non-refundable"
+          }
+        </div>
+      </div>
+
+      ${
+        ctx.paymentLink
+          ? `
+            <button
+              type="button"
+              class="primary-btn"
+              onclick="openReservationPayment()"
+            >
+              💳 Pay ₹${ctx.reservationFee.toFixed(2)}
+            </button>
+
+            <button
+              type="button"
+              class="primary-btn"
+              style="
+                margin-top:10px;
+                background:#087f23;
+              "
+              onclick="completeReservationAfterPayment()"
+            >
+              ✅ I Have Paid
+            </button>
+          `
+          : `
+            <div
+              style="
+                padding:12px;
+                border-radius:10px;
+                background:#fff0f0;
+                color:#b00020;
+                font-size:14px;
+              "
+            >
+              Payment link is not configured by the restaurant.
+            </div>
+          `
+      }
+
+    </div>
+  `;
+
+  document.body.appendChild(popup);
 }
 
 function updateReservationTimeOptions() {

@@ -154,12 +154,13 @@
   >
 
   <input
-    type="time"
-    min="08:00"
-    max="20:00"
-    step="3600"
-    required
-  >
+        type="time"
+        min="08:00"
+        max="20:00"
+        step="1800"
+        style="display:none;"
+        aria-hidden="true"
+      >
 
   <select name="duration" required>
     <option value="60">1 Hour</option>
@@ -185,6 +186,22 @@
     class="primary-btn"
     type="submit"
   >
+
+
+<div id="reservationAvailabilityBox"
+     style="margin-top:16px;">
+  <div style="
+    padding:14px;
+    border-radius:14px;
+    background:#fff8ef;
+    border:1px solid #ead8c5;
+    color:#666;
+    text-align:center;">
+    📅 Select date, guests and duration to check available times.
+  </div>
+</div>
+
+
     Confirm Reservation
   </button>
 
