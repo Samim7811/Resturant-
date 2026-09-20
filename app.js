@@ -4554,3 +4554,78 @@ async function cancelMyReservation(reservationId) {
   }
 }
 
+
+/* ===== DYNAMIC VISIT US ===== */
+async function loadVisitUsInfo() {
+  try {
+    const result = await supabaseClient
+      .from("restaurants")
+      .select("name, phone, address, city, state, opening_time, closing_time, settings")
+      .eq("slug", "golden-thali")
+      .single();
+
+    if (result.error || !result.data) return;
+
+    const r = result.data;
+
+    const addressEl = document.getElementById("visitAddress");
+    const phoneEl = document.getElementById("visitPhone");
+    const hoursEl = document.getElementById("visitHours");
+
+    const location = [r.address, r.city, r.state]
+      .filter(Boolean)
+      .join(", ");
+
+    if (addressEl && location) {
+      addressEl.textContent = "📍 " + location;
+    }
+
+    if (phoneEl && r.phone) {
+      phoneEl.textContent = "📞 " + r.phone;
+    }
+
+    // Google Maps link from restaurant settings
+    const mapLink = r.settings?.map_link || "";
+    const contactSection = document.getElementById("contact");
+
+    if (contactSection && mapLink) {
+      let mapEl = document.getElementById("visitMap");
+
+      if (!mapEl) {
+        mapEl = document.createElement("a");
+        mapEl.id = "visitMap";
+        mapEl.target = "_blank";
+        mapEl.rel = "noopener noreferrer";
+        mapEl.style.display = "inline-block";
+        mapEl.style.marginTop = "8px";
+        mapEl.style.fontWeight = "700";
+        mapEl.textContent = "📍 View on Google Maps";
+        contactSection.appendChild(mapEl);
+      }
+
+      mapEl.href = mapLink;
+    }
+
+    if (hoursEl && (r.opening_time || r.closing_time)) {
+      const formatTime = (value) => {
+        if (!value) return "";
+        const [h, m] = String(value).slice(0, 5).split(":");
+        const hour = Number(h);
+        const suffix = hour >= 12 ? "PM" : "AM";
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${m} ${suffix}`;
+      };
+
+      const opening = formatTime(r.opening_time);
+      const closing = formatTime(r.closing_time);
+
+      if (opening && closing) {
+        hoursEl.textContent = `🕐 Open Daily • ${opening} – ${closing}`;
+      }
+    }
+  } catch (error) {
+    console.error("Visit Us loading error:", error);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", loadVisitUsInfo);
