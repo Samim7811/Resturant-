@@ -524,7 +524,17 @@ async function saveSettings(e){
       document.getElementById("restaurantBrandPng")?.files?.[0];
 
     if (brandFile) {
-      brandLogoUrl = await uploadRestaurantBrandPng(brandFile);
+      try {
+        brandLogoUrl = await uploadRestaurantBrandPng(brandFile);
+      } catch (uploadError) {
+        console.error("BRAND PNG UPLOAD ERROR:", uploadError);
+        showMessage(
+          "settingsMessage",
+          "PNG upload failed: " + (uploadError?.message || "Unknown error"),
+          true
+        );
+        return;
+      }
     }
 
 const updateData = {
