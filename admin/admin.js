@@ -179,12 +179,179 @@ async function loadRestaurant(){
 
   fillRestaurantSettings(restaurant);
 
+      await loadPaymentSettings();
+
   document.getElementById('sidebarRestaurantName').textContent =
     restaurant.name || 'Restaurant';
 
   await loadDashboard();
 
 }
+
+
+/* =========================================================
+   PAYMENT SETTINGS V1
+   Supabase payment_settings integration
+   ========================================================= */
+
+async function getPaymentApiToken(){
+  const { data, error } = await supabaseClient.auth.getSession();
+
+  if(error || !data?.session?.access_token){
+    throw new Error("Admin session expired. Please login again.");
+  }
+
+  return data.session.access_token;
+}
+
+async function loadPaymentSettings(){
+  if(!currentRestaurant?.id) return;
+
+  try {
+    const token = await getPaymentApiToken();
+
+    const response = await fetch("/api/payment-settings", {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
+
+    const result = await response.json();
+
+    if(!response.ok){
+      throw new Error(result.error || "Could not load payment settings.");
+    }
+
+    const p = result || {};
+
+    const provider = document.getElementById("paymentProvider");
+    const enabled = document.getElementById("paymentEnabled");
+    const environment = document.getElementById("paymentEnvironment");
+    const cashfreeAppId = document.getElementById("cashfreeAppId");
+    const phonepeMerchantId = document.getElementById("phonepeMerchantId");
+    const phonepeSaltIndex = document.getElementById("phonepeSaltIndex");
+    const manualPaymentLink = document.getElementById("manualPaymentLink");
+
+    if(provider) provider.value = p.provider || "manual";
+    if(enabled) enabled.value = String(p.enabled ?? false);
+    if(environment) environment.value = p.environment || "sandbox";
+
+    if(cashfreeAppId) cashfreeAppId.value = p.app_id || "";
+    if(phonepeMerchantId) phonepeMerchantId.value = p.merchant_id || "";
+    if(phonepeSaltIndex) phonepeSaltIndex.value = p.salt_index || "";
+    if(manualPaymentLink) manualPaymentLink.value = p.payment_link || "";
+
+    const secretInput = document.getElementById("cashfreeSecretKey");
+    const saltInput = document.getElementById("phonepeSaltKey");
+
+    if(secretInput) secretInput.value = "";
+    if(saltInput) saltInput.value = "";
+
+  } catch(error) {
+    console.error("PAYMENT SETTINGS LOAD ERROR:", error);
+  }
+}
+
+async function savePaymentSettings(){
+  if(!currentRestaurant?.id){
+    alert("Restaurant information is not loaded yet.");
+    return;
+  }
+
+  const message = document.getElementById("paymentSettingsMessage");
+
+  try {
+    const token = await getPaymentApiToken();
+
+    const payload = {
+      provider:
+        document.getElementById("paymentProvider")?.value || "manual",
+
+      enabled:
+        document.getElementById("paymentEnabled")?.value === "true",
+
+      environment:
+        document.getElementById("paymentEnvironment")?.value || "sandbox",
+
+      app_id:
+        document.getElementById("cashfreeAppId")?.value.trim() || null,
+
+      merchant_id:
+        document.getElementById("phonepeMerchantId")?.value.trim() || null,
+
+      salt_index:
+        document.getElementById("phonepeSaltIndex")?.value.trim() || null,
+
+      payment_link:
+        document.getElementById("manualPaymentLink")?.value.trim() || null
+    };
+
+    const cashfreeSecret =
+      document.getElementById("cashfreeSecretKey")?.value.trim();
+
+    const phonepeSalt =
+      document.getElementById("phonepeSaltKey")?.value.trim();
+
+    if(cashfreeSecret){
+      payload.secret_key = cashfreeSecret;
+    }
+
+    if(phonepeSalt){
+      payload.salt_key = phonepeSalt;
+    }
+
+    if(message){
+      message.innerHTML =
+        '<div style="margin-top:15px;padding:12px;border-radius:10px;background:#fff7e8;color:#8a5a00;">⏳ Saving securely...</div>';
+    }
+
+    const response = await fetch("/api/payment-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if(!response.ok){
+      throw new Error(
+        result.error || "Could not save payment settings."
+      );
+    }
+
+    if(message){
+      message.innerHTML =
+        '<div style="margin-top:15px;padding:12px;border-radius:10px;background:#eaf8ed;color:#087f23;">✅ Payment settings saved securely.</div>';
+    }
+
+    if(document.getElementById("cashfreeSecretKey")){
+      document.getElementById("cashfreeSecretKey").value = "";
+    }
+
+    if(document.getElementById("phonepeSaltKey")){
+      document.getElementById("phonepeSaltKey").value = "";
+    }
+
+  } catch(error) {
+    console.error("SECURE PAYMENT SETTINGS ERROR:", error);
+
+    if(message){
+      message.innerHTML =
+        '<div style="margin-top:15px;padding:12px;border-radius:10px;background:#fff0f0;color:#b00020;">❌ ' +
+        (error.message || "Could not save payment settings.") +
+        '</div>';
+    }
+  }
+}
+
+window.loadPaymentSettings = loadPaymentSettings;
+window.savePaymentSettings = savePaymentSettings;
+
+/* END PAYMENT SETTINGS V1 */
 
 
 function fillRestaurantSettings(r){
@@ -204,6 +371,31 @@ function fillRestaurantSettings(r){
     r.closing_time ? String(r.closing_time).slice(0,5) : '';
 
   const settings = r.settings || {};
+  
+  const reservationFeeInput =
+    document.getElementById('reservationFee');
+
+  if (reservationFeeInput) {
+    reservationFeeInput.value =
+      Number(settings.reservation_fee || 0);
+  }
+
+  const reservationRefundableInput =
+    document.getElementById('reservationRefundable');
+
+  if (reservationRefundableInput) {
+    reservationRefundableInput.value =
+      String(settings.reservation_refundable !== false);
+  }
+
+  const reservationPaymentLinkInput =
+    document.getElementById('reservationPaymentLink');
+
+  if (reservationPaymentLinkInput) {
+    reservationPaymentLinkInput.value =
+      settings.reservation_payment_link || '';
+  }
+
 
   document.getElementById('restaurantWhatsapp').value =
     settings.whatsapp || '';
@@ -249,6 +441,15 @@ async function saveSettings(e){
   const settings = {
 
     ...(currentRestaurant.settings || {}),
+      reservation_fee:
+        Number(document.getElementById('reservationFee')?.value || 0),
+
+      reservation_refundable:
+        document.getElementById('reservationRefundable')?.value !== 'false',
+
+      reservation_payment_link:
+        document.getElementById('reservationPaymentLink')?.value.trim() || '',
+
 
     whatsapp:
       document.getElementById('restaurantWhatsapp').value.trim(),

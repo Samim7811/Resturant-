@@ -80,7 +80,11 @@
         🎟️ <span>Offers</span>
       </button>
 
-      <button class="nav-item" data-page="settings">
+      <button class="nav-item" data-page="payment-settings">
+  💳<span>Payment Settings</span>
+</button>
+
+<button class="nav-item" data-page="settings">
         ⚙️ <span>Restaurant Settings</span>
       </button>
     </nav>
@@ -565,7 +569,157 @@
     </section>
 
 
-    <section id="settingsPage" class="page">
+    <section id="payment-settingsPage" class="page">
+
+  <div class="settings-container">
+
+    <div class="settings-header">
+      <div>
+        <h2>Payment Settings</h2>
+        <p>Configure online payment methods for your restaurant</p>
+      </div>
+    </div>
+
+    <div class="settings-card">
+
+      <div class="settings-card-title">
+        <div>
+          <h3>Payment Gateway</h3>
+          <p>Choose how customers can pay online.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+
+        <div class="field">
+          <label>Payment Provider</label>
+          <select id="paymentProvider">
+            <option value="manual">Manual / Payment Link</option>
+            <option value="cashfree">Cashfree</option>
+            <option value="phonepe">PhonePe</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Status</label>
+          <select id="paymentEnabled">
+            <option value="false">Disabled</option>
+            <option value="true">Enabled</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Environment</label>
+          <select id="paymentEnvironment">
+            <option value="sandbox">Sandbox / Test</option>
+            <option value="production">Production / Live</option>
+          </select>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="settings-card">
+
+      <div class="settings-card-title">
+        <div>
+          <h3>Cashfree</h3>
+          <p>Cashfree payment gateway credentials.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+
+        <div class="field">
+          <label>Cashfree App ID</label>
+          <input id="cashfreeAppId" type="text"
+            placeholder="Enter Cashfree App ID">
+        </div>
+
+        <div class="field">
+          <label>Cashfree Secret Key</label>
+          <input id="cashfreeSecretKey" type="password"
+            placeholder="Enter Secret Key">
+        </div>
+
+      </div>
+
+      <div class="payment-security-note">
+        🔒 Secret credentials will be handled through the secure payment backend.
+        Do not put secret keys inside customer-side JavaScript.
+      </div>
+
+    </div>
+
+    <div class="settings-card">
+
+      <div class="settings-card-title">
+        <div>
+          <h3>PhonePe</h3>
+          <p>PhonePe payment gateway credentials.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+
+        <div class="field">
+          <label>Merchant ID</label>
+          <input id="phonepeMerchantId" type="text"
+            placeholder="Enter Merchant ID">
+        </div>
+
+        <div class="field">
+          <label>Salt Key</label>
+          <input id="phonepeSaltKey" type="password"
+            placeholder="Enter Salt Key">
+        </div>
+
+        <div class="field">
+          <label>Salt Index</label>
+          <input id="phonepeSaltIndex" type="text"
+            placeholder="Enter Salt Index">
+        </div>
+
+      </div>
+
+      <div class="payment-security-note">
+        🔒 PhonePe secret credentials must remain server-side.
+      </div>
+
+    </div>
+
+    <div class="settings-card">
+
+      <div class="settings-card-title">
+        <div>
+          <h3>Manual Payment Link</h3>
+          <p>Use a payment link when a gateway API is not enabled.</p>
+        </div>
+      </div>
+
+      <div class="field full">
+        <label>Payment Link</label>
+        <input id="manualPaymentLink" type="url"
+          placeholder="https://...">
+      </div>
+
+    </div>
+
+    <div class="settings-actions">
+      <button type="button" class="save-settings-btn"
+        onclick="savePaymentSettings()">
+        💾 Save Payment Settings
+      </button>
+    </div>
+
+    <div id="paymentSettingsMessage"></div>
+
+  </div>
+
+</section>
+
+<section id="settingsPage" class="page">
 
       <div class="settings-container">
 
@@ -686,7 +840,56 @@
             </div>
 
 
-            <button class="save-btn" type="submit">
+            
+<div class="setting-divider"></div>
+
+<div class="section-heading">
+  <h3>📅 Reservation Settings</h3>
+  <p>Manage table booking duration and reservation fee.</p>
+</div>
+
+<div class="form-grid">
+
+  <div class="field">
+    <label>Reservation Fee (₹)</label>
+    <input
+      id="reservationFee"
+      type="number"
+      min="0"
+      step="1"
+      value="0"
+      placeholder="0"
+    >
+  </div>
+
+  <div class="field">
+    <label>Refund Policy</label>
+    <select id="reservationRefundable">
+      <option value="true">100% Refundable</option>
+      <option value="false">Non-refundable</option>
+    </select>
+  </div>
+
+</div>
+
+<div
+  style="
+    margin:12px 0 18px;
+    padding:14px;
+    border-radius:10px;
+    background:#fff8e1;
+    border:1px solid #f2c94c;
+    color:#6b4f00;
+  "
+>
+  <strong>💰 Reservation Fee Policy</strong>
+  <div style="margin-top:5px;">
+    <strong style="color:#087f23;">100% Refundable Money</strong>
+    — the reservation fee will be fully refundable according to the restaurant's reservation policy.
+  </div>
+</div>
+
+<button class="save-btn" type="submit">
               💾 Save Changes
             </button>
 
