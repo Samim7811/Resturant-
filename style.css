@@ -2208,3 +2208,45 @@ body{
   }
 }
 
+
+/* ===== RESTAURANT BRAND PNG - SAFE HEADER SIZE ===== */
+.header .restaurant-brand-logo{
+  display:block !important;
+  width:auto !important;
+  height:auto !important;
+  max-width:170px !important;
+  max-height:58px !important;
+  object-fit:contain !important;
+  object-position:left center !important;
+}
+
+.header .logo{
+  display:flex !important;
+  align-items:center !important;
+  height:60px !important;
+  max-height:60px !important;
+  overflow:hidden !important;
+}
+
+@media (max-width:800px){
+  .header .restaurant-brand-logo{
+    max-width:145px !important;
+    max-height:48px !important;
+  }
+
+  .header .logo{
+    height:54px !important;
+    max-height:54px !important;
+    overflow:hidden !important;
+  }
+
+  .header .my-orders-btn,
+  .header .book-btn{
+    height:32px !important;
+    padding:6px 8px !important;
+    font-size:9px !important;
+    border-radius:16px !important;
+    white-space:nowrap !important;
+  }
+}
+

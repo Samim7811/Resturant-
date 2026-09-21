@@ -186,6 +186,8 @@ async function loadRestaurant(){
 
   await loadDashboard();
 
+    setupOrderNotifications();
+
 }
 
 
@@ -4047,4 +4049,176 @@ openPage = function(page){
   }
 
 };
+
+
+/* ===== NEW ORDER SOUND NOTIFICATION V1 ===== */
+let orderNotificationChannel = null;
+let adminAudioContext = null;
+let adminAudioUnlocked = false;
+
+function unlockAdminOrderSound() {
+  try {
+    if (!adminAudioContext) {
+      adminAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (adminAudioContext.state === "suspended") {
+      adminAudioContext.resume();
+    }
+    adminAudioUnlocked = true;
+  } catch (error) {
+    console.warn("Order sound could not be unlocked:", error);
+  }
+}
+
+document.addEventListener("click", unlockAdminOrderSound, { passive: true });
+
+function playNewOrderSound() {
+  try {
+    if (!adminAudioContext) {
+      adminAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    if (adminAudioContext.state === "suspended") {
+      adminAudioContext.resume();
+    }
+
+    const now = adminAudioContext.currentTime;
+
+    [0, 0.22, 0.44].forEach((delay, index) => {
+      const oscillator = adminAudioContext.createOscillator();
+      const gain = adminAudioContext.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.value = index === 1 ? 880 : 660;
+
+      gain.gain.setValueAtTime(0.0001, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + delay + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.18);
+
+      oscillator.connect(gain);
+      gain.connect(adminAudioContext.destination);
+
+      oscillator.start(now + delay);
+      oscillator.stop(now + delay + 0.2);
+    });
+  } catch (error) {
+    console.warn("New order sound error:", error);
+  }
+}
+
+function showNewOrderNotification(order) {
+  document.getElementById("newOrderNotification")?.remove();
+
+  const box = document.createElement("div");
+  box.id = "newOrderNotification";
+
+  const orderNumber =
+    order?.order_number ||
+    ("#" + String(order?.id || "").slice(0, 8));
+
+  const total =
+    order?.total !== undefined && order?.total !== null
+      ? "₹" + Number(order.total).toFixed(0)
+      : "";
+
+  box.innerHTML = `
+    <div style="
+      position:fixed;
+      top:20px;
+      right:20px;
+      z-index:999999;
+      width:min(360px,calc(100vw - 40px));
+      background:#17130e;
+      color:#fff;
+      border:2px solid #efa928;
+      border-radius:18px;
+      padding:16px;
+      box-shadow:0 12px 40px rgba(0,0,0,.35);
+      font-family:inherit;
+    ">
+      <div style="font-size:12px;color:#efa928;font-weight:800;letter-spacing:1px;">
+        🔔 NEW ORDER RECEIVED
+      </div>
+      <div style="font-size:20px;font-weight:800;margin-top:6px;">
+        ${orderNumber}
+      </div>
+      <div style="margin-top:5px;color:#ddd;">
+        ${order?.order_type === "home_delivery" ? "Home Delivery" : "Dine-In"}
+        ${total ? " • " + total : ""}
+      </div>
+      <button
+        type="button"
+        onclick="document.getElementById('newOrderNotification')?.remove(); openPage('orders');"
+        style="
+          margin-top:12px;
+          width:100%;
+          border:0;
+          border-radius:10px;
+          padding:10px;
+          background:#efa928;
+          color:#17130e;
+          font-weight:800;
+          cursor:pointer;
+        "
+      >
+        View Order
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(box);
+
+  setTimeout(() => {
+    box.remove();
+  }, 10000);
+}
+
+function setupOrderNotifications() {
+  if (!currentRestaurant?.id) return;
+
+  if (orderNotificationChannel) {
+    try {
+      supabaseClient.removeChannel(orderNotificationChannel);
+    } catch (error) {
+      console.warn("Could not remove old order channel:", error);
+    }
+  }
+
+  orderNotificationChannel = supabaseClient
+    .channel("admin-new-orders-" + currentRestaurant.id)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "orders",
+        filter: "restaurant_id=eq." + currentRestaurant.id
+      },
+      async (payload) => {
+        console.log("🔔 New order received:", payload.new);
+
+        playNewOrderSound();
+        showNewOrderNotification(payload.new);
+
+        if (typeof loadOrders === "function") {
+          try {
+            await loadOrders();
+          } catch (error) {
+            console.warn("Orders refresh after new order failed:", error);
+          }
+        }
+
+        if (typeof loadDashboard === "function") {
+          try {
+            await loadDashboard();
+          } catch (error) {
+            console.warn("Dashboard refresh after new order failed:", error);
+          }
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log("New order realtime status:", status);
+    });
+}
 
