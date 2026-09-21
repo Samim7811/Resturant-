@@ -4652,9 +4652,17 @@ async function loadRestaurantBranding() {
     const logoUrl = result.data?.logo_url || "";
 
     if (logoUrl) {
-      logo.src = logoUrl;
-      logo.style.display = "block";
+      logo.style.display = "none";
       fallback.style.display = "none";
+      logo.onload = () => {
+        logo.style.display = "block";
+        fallback.style.display = "none";
+      };
+      logo.onerror = () => {
+        logo.style.display = "none";
+        fallback.style.display = "flex";
+      };
+      logo.src = logoUrl;
     } else {
       logo.removeAttribute("src");
       logo.style.display = "none";
