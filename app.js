@@ -4655,7 +4655,7 @@ async function loadRestaurantBranding() {
       logo.style.display = "none";
       fallback.style.display = "none";
       logo.onload = () => {
-        logo.style.display = "block";
+        logo.style.setProperty("display", "block", "important");
         fallback.style.display = "none";
       };
       logo.onerror = () => {

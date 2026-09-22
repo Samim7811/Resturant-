@@ -2211,7 +2211,7 @@ body{
 
 /* ===== RESTAURANT BRAND PNG - SAFE HEADER SIZE ===== */
 .header .restaurant-brand-logo{
-  display:block !important;
+  display:none !important;
   width:auto !important;
   height:auto !important;
   max-width:170px !important;
