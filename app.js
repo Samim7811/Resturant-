@@ -4490,7 +4490,7 @@ function renderMyOrderCard(item, restaurant) {
         <div>
           <small>Payment</small>
           <strong>${myOrdersEscape(
-            order.payment_status || "pending"
+            order.payment_method === "online" ? "Online" : "Cash"
           )}</strong>
         </div>
 
