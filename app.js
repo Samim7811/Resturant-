@@ -4177,28 +4177,29 @@ async function loadMyOrders() {
     }
 
     if (orderIds.length) {
-      const orderResult = await supabaseClient
-        .from("orders")
-        .select(`
-          id,
-          order_number,
-          order_type,
-          status,
-          payment_status,
-          total,
-          created_at
-        `)
-        .in("id", orderIds)
-        .eq("restaurant_id", restaurant.id);
+    const customerOrders = [];
+
+    for (const orderId of orderIds) {
+      const orderResult = await supabaseClient.rpc(
+        "get_customer_order",
+        {
+          p_order_id: orderId
+        }
+      );
 
       if (orderResult.error) {
         throw orderResult.error;
       }
 
-      orders = orderResult.data || [];
+      if (orderResult.data && orderResult.data.length > 0) {
+        customerOrders.push(orderResult.data[0]);
+      }
     }
 
-    const reservationMap = {};
+    orders = customerOrders;
+  }
+
+  const reservationMap = {};
     reservations.forEach(item => {
       reservationMap[item.id] = item;
     });
