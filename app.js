@@ -1704,32 +1704,40 @@ async function placeDemoOrder() {
       notes: meta.notes || ""
     };
 
-    const orderResult = await supabaseClient
-      .from("orders")
-      .insert(orderPayload)
-      .select("id, order_number")
-      .single();
-
-    if (orderResult.error || !orderResult.data) {
-      throw orderResult.error || new Error("Order could not be created.");
-    }
-
-    const orderId = orderResult.data.id;
-
-    /* Save every cart item */
-    const itemPayload = cart.map(item => ({
-      order_id: orderId,
+    const rpcItems = cart.map(item => ({
       product_id: item.productId || item.id || null,
       product_name: item.name,
       price: Number(item.price),
       quantity: Number(item.quantity || 1),
-      subtotal:
-        Number(item.price) * Number(item.quantity || 1)
+      subtotal: Number(item.price) * Number(item.quantity || 1)
     }));
 
-    const itemsResult = await supabaseClient
-      .from("order_items")
-      .insert(itemPayload);
+    const orderResult = await supabaseClient.rpc(
+      "create_customer_order",
+      {
+        p_restaurant_id: restaurantId,
+        p_order_type: orderPayload.order_type,
+        p_customer_name: orderPayload.customer_name,
+        p_customer_phone: orderPayload.customer_phone,
+        p_delivery_address: orderPayload.delivery_address,
+        p_delivery_city: orderPayload.delivery_city,
+        p_delivery_pincode: orderPayload.delivery_pincode,
+        p_subtotal: orderPayload.subtotal,
+        p_delivery_charge: orderPayload.delivery_charge,
+        p_discount: orderPayload.discount,
+        p_total: orderPayload.total,
+        p_payment_method: orderPayload.payment_method,
+        p_notes: orderPayload.notes,
+        p_items: rpcItems
+      }
+    );
+
+    if (orderResult.error || !orderResult.data?.length) {
+      throw orderResult.error || new Error("Order could not be created.");
+    }
+
+    const createdOrder = orderResult.data[0];
+    const orderId = createdOrder.id;
 
 
   // Save order reference for My Orders
@@ -1738,8 +1746,8 @@ async function placeDemoOrder() {
   );
 
   savedOrders.push({
-    display_id: orderResult.data.order_number,
-    db_id: orderResult.data.id,
+    display_id: createdOrder.order_number,
+    db_id: createdOrder.id,
     type: meta.type === "dine_in" ? "dine_in" : "home_delivery",
     saved_at: new Date().toISOString()
   });
