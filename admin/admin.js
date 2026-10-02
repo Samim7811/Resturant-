@@ -4645,216 +4645,71 @@ startOrderPolling();
 
 
 /* =========================================================
-   URGENT RESTAURANT ORDER ALERT
-   Repeating attention-grabbing ringtone
-   Maximum 20 seconds
+   RESTAURANT ORDER ALERT - REAL MP3
+   Uses admin/sounds/order-alert.mp3
+   Repeats for maximum 20 seconds.
+   Stops immediately when order is Confirmed.
    ========================================================= */
 
-let restaurantOrderAudioContext = null;
-let restaurantOrderSoundTimer = null;
-let restaurantOrderSoundStopTimer = null;
+let orderAlertAudio = null;
+let orderAlertStopTimer = null;
 
+function getOrderAlertAudio(){
 
-function getRestaurantOrderAudio(){
+  if(!orderAlertAudio){
 
-  if(!restaurantOrderAudioContext){
+    orderAlertAudio =
+      new Audio("./sounds/order-alert.mp3");
 
-    const AudioContextClass =
-      window.AudioContext ||
-      window.webkitAudioContext;
-
-    if(!AudioContextClass) return null;
-
-    restaurantOrderAudioContext =
-      new AudioContextClass();
+    orderAlertAudio.preload = "auto";
+    orderAlertAudio.loop = true;
+    orderAlertAudio.volume = 1.0;
 
   }
 
-  if(
-    restaurantOrderAudioContext.state === "suspended"
-  ){
+  return orderAlertAudio;
+}
 
-    restaurantOrderAudioContext.resume()
-      .catch(() => {});
+
+function stopNewOrderSound(){
+
+  if(orderAlertStopTimer){
+
+    clearTimeout(orderAlertStopTimer);
+    orderAlertStopTimer = null;
 
   }
 
-  return restaurantOrderAudioContext;
+  if(orderAlertAudio){
+
+    orderAlertAudio.pause();
+    orderAlertAudio.currentTime = 0;
+
+  }
 
 }
 
 
-/*
-   URGENT ALERT PATTERN
+function playNewOrderSound(){
 
-   Fast repeated notes instead of
-   a normal musical bell.
-*/
+  stopNewOrderSound();
 
-function playRestaurantOrderPattern(){
+  const audio = getOrderAlertAudio();
 
-  const ctx =
-    getRestaurantOrderAudio();
+  audio.loop = true;
+  audio.volume = 1.0;
+  audio.currentTime = 0;
 
-  if(!ctx) return;
+  audio.play().catch(error => {
 
-  const start =
-    ctx.currentTime + 0.01;
-
-
-  /*
-     Two rapid groups.
-
-     High → higher → very high
-     then repeat.
-
-     This is intentionally sharp and
-     attention-grabbing.
-  */
-
-  const notes = [
-
-    { freq: 1174.66, time: 0.00, duration: 0.16 },
-    { freq: 1567.98, time: 0.15, duration: 0.16 },
-    { freq: 1975.53, time: 0.30, duration: 0.22 },
-
-    { freq: 1174.66, time: 0.58, duration: 0.16 },
-    { freq: 1567.98, time: 0.73, duration: 0.16 },
-    { freq: 1975.53, time: 0.88, duration: 0.25 }
-
-  ];
-
-
-  notes.forEach(note => {
-
-    const oscillator =
-      ctx.createOscillator();
-
-    const gain =
-      ctx.createGain();
-
-
-    /*
-       Square wave gives the alert
-       a sharper notification character.
-    */
-
-    oscillator.type = "square";
-
-
-    oscillator.frequency.setValueAtTime(
-      note.freq,
-      start + note.time
-    );
-
-
-    /*
-       Strong immediate attack.
-    */
-
-    gain.gain.setValueAtTime(
-      0.001,
-      start + note.time
-    );
-
-    gain.gain.linearRampToValueAtTime(
-      0.62,
-      start + note.time + 0.015
-    );
-
-    gain.gain.exponentialRampToValueAtTime(
-      0.001,
-      start + note.time + note.duration
-    );
-
-
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
-
-
-    oscillator.start(
-      start + note.time
-    );
-
-    oscillator.stop(
-      start + note.time + note.duration + 0.04
+    console.warn(
+      "ORDER ALERT AUDIO BLOCKED:",
+      error
     );
 
   });
 
-}
-
-
-/* Stop everything immediately */
-
-function stopNewOrderSound(){
-
-  if(restaurantOrderSoundTimer){
-
-    clearInterval(
-      restaurantOrderSoundTimer
-    );
-
-    restaurantOrderSoundTimer = null;
-
-  }
-
-
-  if(restaurantOrderSoundStopTimer){
-
-    clearTimeout(
-      restaurantOrderSoundStopTimer
-    );
-
-    restaurantOrderSoundStopTimer = null;
-
-  }
-
-}
-
-
-/*
-   START URGENT ORDER ALERT
-*/
-
-function playNewOrderSound(){
-
-  /*
-     Never allow two ringtone loops
-     to run at the same time.
-  */
-
-  stopNewOrderSound();
-
-
-  /*
-     FIRST ALERT = IMMEDIATE
-  */
-
-  playRestaurantOrderPattern();
-
-
-  /*
-     Repeat quickly.
-
-     This makes it feel like an
-     incoming order alert instead
-     of a single notification.
-  */
-
-  restaurantOrderSoundTimer =
-    setInterval(() => {
-
-      playRestaurantOrderPattern();
-
-    }, 1550);
-
-
-  /*
-     Maximum 20 seconds.
-  */
-
-  restaurantOrderSoundStopTimer =
+  orderAlertStopTimer =
     setTimeout(() => {
 
       stopNewOrderSound();
@@ -4864,104 +4719,66 @@ function playNewOrderSound(){
 }
 
 
-/*
-   STOP WHEN ORDER BECOMES CONFIRMED
-*/
+/* Unlock / warm up audio after admin taps Enable Order Sound */
 
-document.addEventListener(
-  "change",
-  function(event){
+document.addEventListener("click", function(event){
 
-    const target =
-      event.target;
+  const button = event.target.closest("button");
 
-    if(
-      target &&
-      target.matches &&
-      target.matches(".order-status-select-v2")
-    ){
+  if(!button) return;
 
-      if(
-        String(target.value).toLowerCase()
-        === "confirmed"
-      ){
+  const text =
+    String(button.textContent || "").toLowerCase();
 
-        stopNewOrderSound();
+  if(
+    text.includes("enable") &&
+    text.includes("order") &&
+    text.includes("sound")
+  ){
 
-      }
+    const audio = getOrderAlertAudio();
 
-    }
+    audio.volume = 1.0;
+    audio.load();
 
-  },
-  true
-);
+    audio.play()
+      .then(() => {
 
+        audio.pause();
+        audio.currentTime = 0;
 
-/*
-   MOBILE AUDIO UNLOCK
-*/
-
-document.addEventListener(
-  "click",
-  function(event){
-
-    const target =
-      event.target;
-
-    if(!target) return;
-
-    const text =
-      String(target.textContent || "")
-        .toLowerCase();
-
-    if(
-      text.includes("enable order sound")
-    ){
-
-      const ctx =
-        getRestaurantOrderAudio();
-
-      if(!ctx) return;
-
-      ctx.resume()
-        .catch(() => {});
-
-      try{
-
-        const oscillator =
-          ctx.createOscillator();
-
-        const gain =
-          ctx.createGain();
-
-        gain.gain.value = 0.0001;
-
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-
-        oscillator.start();
-
-        oscillator.stop(
-          ctx.currentTime + 0.05
-        );
-
-      }catch(error){
+      })
+      .catch(error => {
 
         console.warn(
-          "Audio unlock failed:",
+          "AUDIO UNLOCK FAILED:",
           error
         );
 
-      }
+      });
 
-    }
+  }
 
-  },
-  true
-);
+}, true);
 
 
-console.log(
-  "🚨 Urgent restaurant order alert loaded."
-);
+/* Stop alert immediately when order becomes Confirmed */
 
+document.addEventListener("change", function(event){
+
+  const target = event.target;
+
+  if(
+    target &&
+    target.matches(".order-status-select-v2") &&
+    String(target.value).toLowerCase() === "confirmed"
+  ){
+
+    stopNewOrderSound();
+
+  }
+
+}, true);
+
+
+/* END REAL MP3 ORDER ALERT */
