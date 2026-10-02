@@ -4645,10 +4645,9 @@ startOrderPolling();
 
 
 /* =========================================================
-   RESTAURANT ORDER RINGTONE
-   Repeating partner-style alert
+   URGENT RESTAURANT ORDER ALERT
+   Repeating attention-grabbing ringtone
    Maximum 20 seconds
-   Stops immediately when order is confirmed
    ========================================================= */
 
 let restaurantOrderAudioContext = null;
@@ -4656,7 +4655,6 @@ let restaurantOrderSoundTimer = null;
 let restaurantOrderSoundStopTimer = null;
 
 
-/* Get / create audio context */
 function getRestaurantOrderAudio(){
 
   if(!restaurantOrderAudioContext){
@@ -4665,9 +4663,7 @@ function getRestaurantOrderAudio(){
       window.AudioContext ||
       window.webkitAudioContext;
 
-    if(!AudioContextClass){
-      return null;
-    }
+    if(!AudioContextClass) return null;
 
     restaurantOrderAudioContext =
       new AudioContextClass();
@@ -4688,29 +4684,44 @@ function getRestaurantOrderAudio(){
 }
 
 
-/* One restaurant-style ringtone pattern */
+/*
+   URGENT ALERT PATTERN
+
+   Fast repeated notes instead of
+   a normal musical bell.
+*/
+
 function playRestaurantOrderPattern(){
 
-  const ctx = getRestaurantOrderAudio();
+  const ctx =
+    getRestaurantOrderAudio();
 
   if(!ctx) return;
 
-  const start = ctx.currentTime + 0.01;
+  const start =
+    ctx.currentTime + 0.01;
+
 
   /*
-     Strong 3-note attention pattern
-     Similar TYPE of restaurant order alert,
-     not a copy of any company's ringtone.
+     Two rapid groups.
+
+     High → higher → very high
+     then repeat.
+
+     This is intentionally sharp and
+     attention-grabbing.
   */
 
   const notes = [
-    { freq: 1046.5, time: 0.00, duration: 0.20, volume: 0.48 },
-    { freq: 1318.5, time: 0.23, duration: 0.20, volume: 0.44 },
-    { freq: 1568.0, time: 0.46, duration: 0.28, volume: 0.50 },
 
-    { freq: 1046.5, time: 0.92, duration: 0.20, volume: 0.45 },
-    { freq: 1318.5, time: 1.15, duration: 0.20, volume: 0.42 },
-    { freq: 1568.0, time: 1.38, duration: 0.30, volume: 0.48 }
+    { freq: 1174.66, time: 0.00, duration: 0.16 },
+    { freq: 1567.98, time: 0.15, duration: 0.16 },
+    { freq: 1975.53, time: 0.30, duration: 0.22 },
+
+    { freq: 1174.66, time: 0.58, duration: 0.16 },
+    { freq: 1567.98, time: 0.73, duration: 0.16 },
+    { freq: 1975.53, time: 0.88, duration: 0.25 }
+
   ];
 
 
@@ -4723,7 +4734,13 @@ function playRestaurantOrderPattern(){
       ctx.createGain();
 
 
-    oscillator.type = "sine";
+    /*
+       Square wave gives the alert
+       a sharper notification character.
+    */
+
+    oscillator.type = "square";
+
 
     oscillator.frequency.setValueAtTime(
       note.freq,
@@ -4731,14 +4748,18 @@ function playRestaurantOrderPattern(){
     );
 
 
+    /*
+       Strong immediate attack.
+    */
+
     gain.gain.setValueAtTime(
       0.001,
       start + note.time
     );
 
     gain.gain.linearRampToValueAtTime(
-      note.volume,
-      start + note.time + 0.025
+      0.62,
+      start + note.time + 0.015
     );
 
     gain.gain.exponentialRampToValueAtTime(
@@ -4756,7 +4777,7 @@ function playRestaurantOrderPattern(){
     );
 
     oscillator.stop(
-      start + note.time + note.duration + 0.05
+      start + note.time + note.duration + 0.04
     );
 
   });
@@ -4764,7 +4785,8 @@ function playRestaurantOrderPattern(){
 }
 
 
-/* Stop ringtone immediately */
+/* Stop everything immediately */
+
 function stopNewOrderSound(){
 
   if(restaurantOrderSoundTimer){
@@ -4791,22 +4813,33 @@ function stopNewOrderSound(){
 }
 
 
-/* Start repeating ringtone */
+/*
+   START URGENT ORDER ALERT
+*/
+
 function playNewOrderSound(){
 
-  /* Prevent duplicate ringtone timers */
+  /*
+     Never allow two ringtone loops
+     to run at the same time.
+  */
 
   stopNewOrderSound();
 
 
-  /* Play immediately */
+  /*
+     FIRST ALERT = IMMEDIATE
+  */
 
   playRestaurantOrderPattern();
 
 
   /*
-     Repeat the complete pattern.
-     This keeps alerting the staff.
+     Repeat quickly.
+
+     This makes it feel like an
+     incoming order alert instead
+     of a single notification.
   */
 
   restaurantOrderSoundTimer =
@@ -4814,12 +4847,11 @@ function playNewOrderSound(){
 
       playRestaurantOrderPattern();
 
-    }, 2200);
+    }, 1550);
 
 
   /*
-     Hard maximum:
-     20 seconds.
+     Maximum 20 seconds.
   */
 
   restaurantOrderSoundStopTimer =
@@ -4833,18 +4865,15 @@ function playNewOrderSound(){
 
 
 /*
-   If admin changes an order to CONFIRMED,
-   stop the ringtone immediately.
-
-   Capture phase is used so this happens
-   before the normal change handler.
+   STOP WHEN ORDER BECOMES CONFIRMED
 */
 
 document.addEventListener(
   "change",
   function(event){
 
-    const target = event.target;
+    const target =
+      event.target;
 
     if(
       target &&
@@ -4869,15 +4898,15 @@ document.addEventListener(
 
 
 /*
-   Also unlock audio when the existing
-   Enable Order Sound button is clicked.
+   MOBILE AUDIO UNLOCK
 */
 
 document.addEventListener(
   "click",
   function(event){
 
-    const target = event.target;
+    const target =
+      event.target;
 
     if(!target) return;
 
@@ -4892,18 +4921,10 @@ document.addEventListener(
       const ctx =
         getRestaurantOrderAudio();
 
-      if(ctx){
+      if(!ctx) return;
 
-        ctx.resume()
-          .catch(() => {});
-
-      }
-
-      /*
-         Small silent warm-up.
-         This helps mobile browsers allow
-         future order alerts.
-      */
+      ctx.resume()
+        .catch(() => {});
 
       try{
 
@@ -4941,6 +4962,6 @@ document.addEventListener(
 
 
 console.log(
-  "🔔 Restaurant order ringtone system loaded."
+  "🚨 Urgent restaurant order alert loaded."
 );
 
