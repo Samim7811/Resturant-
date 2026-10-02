@@ -4535,3 +4535,110 @@ function startOrderRealtime(){
 /* =========================================================
    END REALTIME NEW ORDER + ORDER SOUND
    ========================================================= */
+
+/* =========================================================
+   NEW ORDER AUTO CHECK - FALLBACK
+   ========================================================= */
+
+let orderPollingTimer = null;
+let knownOrderIds = new Set();
+let pollingInitialized = false;
+
+async function checkForNewOrders(){
+
+  if(!currentRestaurant?.id) return;
+
+  try{
+
+    const { data, error } =
+      await supabaseClient
+        .from("orders")
+        .select("id,created_at")
+        .eq("restaurant_id", currentRestaurant.id)
+        .order("created_at", { ascending:false })
+        .limit(20);
+
+    if(error){
+      console.error("ORDER AUTO CHECK ERROR:", error);
+      return;
+    }
+
+    const latestOrders = data || [];
+
+    if(!pollingInitialized){
+
+      knownOrderIds = new Set(
+        latestOrders.map(order => String(order.id))
+      );
+
+      pollingInitialized = true;
+
+      console.log(
+        "ORDER AUTO CHECK READY:",
+        knownOrderIds.size
+      );
+
+      return;
+    }
+
+    const newOrders = latestOrders.filter(order =>
+      !knownOrderIds.has(String(order.id))
+    );
+
+    if(newOrders.length > 0){
+
+      console.log(
+        "🔔 NEW ORDER:",
+        newOrders
+      );
+
+      newOrders.forEach(order => {
+        knownOrderIds.add(String(order.id));
+      });
+
+      if(typeof playNewOrderSound === "function"){
+        playNewOrderSound();
+      }
+
+      if(typeof loadOrders === "function"){
+        await loadOrders();
+      }
+
+      if(typeof loadDashboard === "function"){
+        await loadDashboard();
+      }
+
+    }
+
+  }catch(error){
+
+    console.error(
+      "ORDER AUTO CHECK ERROR:",
+      error
+    );
+
+  }
+
+}
+
+function startOrderPolling(){
+
+  if(orderPollingTimer){
+    clearInterval(orderPollingTimer);
+  }
+
+  console.log(
+    "🔄 NEW ORDER AUTO CHECK STARTED"
+  );
+
+  checkForNewOrders();
+
+  orderPollingTimer = setInterval(
+    checkForNewOrders,
+    3000
+  );
+
+}
+
+startOrderPolling();
+
