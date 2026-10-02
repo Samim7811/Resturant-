@@ -4642,3 +4642,305 @@ function startOrderPolling(){
 
 startOrderPolling();
 
+
+
+/* =========================================================
+   RESTAURANT ORDER RINGTONE
+   Repeating partner-style alert
+   Maximum 20 seconds
+   Stops immediately when order is confirmed
+   ========================================================= */
+
+let restaurantOrderAudioContext = null;
+let restaurantOrderSoundTimer = null;
+let restaurantOrderSoundStopTimer = null;
+
+
+/* Get / create audio context */
+function getRestaurantOrderAudio(){
+
+  if(!restaurantOrderAudioContext){
+
+    const AudioContextClass =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if(!AudioContextClass){
+      return null;
+    }
+
+    restaurantOrderAudioContext =
+      new AudioContextClass();
+
+  }
+
+  if(
+    restaurantOrderAudioContext.state === "suspended"
+  ){
+
+    restaurantOrderAudioContext.resume()
+      .catch(() => {});
+
+  }
+
+  return restaurantOrderAudioContext;
+
+}
+
+
+/* One restaurant-style ringtone pattern */
+function playRestaurantOrderPattern(){
+
+  const ctx = getRestaurantOrderAudio();
+
+  if(!ctx) return;
+
+  const start = ctx.currentTime + 0.01;
+
+  /*
+     Strong 3-note attention pattern
+     Similar TYPE of restaurant order alert,
+     not a copy of any company's ringtone.
+  */
+
+  const notes = [
+    { freq: 1046.5, time: 0.00, duration: 0.20, volume: 0.48 },
+    { freq: 1318.5, time: 0.23, duration: 0.20, volume: 0.44 },
+    { freq: 1568.0, time: 0.46, duration: 0.28, volume: 0.50 },
+
+    { freq: 1046.5, time: 0.92, duration: 0.20, volume: 0.45 },
+    { freq: 1318.5, time: 1.15, duration: 0.20, volume: 0.42 },
+    { freq: 1568.0, time: 1.38, duration: 0.30, volume: 0.48 }
+  ];
+
+
+  notes.forEach(note => {
+
+    const oscillator =
+      ctx.createOscillator();
+
+    const gain =
+      ctx.createGain();
+
+
+    oscillator.type = "sine";
+
+    oscillator.frequency.setValueAtTime(
+      note.freq,
+      start + note.time
+    );
+
+
+    gain.gain.setValueAtTime(
+      0.001,
+      start + note.time
+    );
+
+    gain.gain.linearRampToValueAtTime(
+      note.volume,
+      start + note.time + 0.025
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      start + note.time + note.duration
+    );
+
+
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+
+
+    oscillator.start(
+      start + note.time
+    );
+
+    oscillator.stop(
+      start + note.time + note.duration + 0.05
+    );
+
+  });
+
+}
+
+
+/* Stop ringtone immediately */
+function stopNewOrderSound(){
+
+  if(restaurantOrderSoundTimer){
+
+    clearInterval(
+      restaurantOrderSoundTimer
+    );
+
+    restaurantOrderSoundTimer = null;
+
+  }
+
+
+  if(restaurantOrderSoundStopTimer){
+
+    clearTimeout(
+      restaurantOrderSoundStopTimer
+    );
+
+    restaurantOrderSoundStopTimer = null;
+
+  }
+
+}
+
+
+/* Start repeating ringtone */
+function playNewOrderSound(){
+
+  /* Prevent duplicate ringtone timers */
+
+  stopNewOrderSound();
+
+
+  /* Play immediately */
+
+  playRestaurantOrderPattern();
+
+
+  /*
+     Repeat the complete pattern.
+     This keeps alerting the staff.
+  */
+
+  restaurantOrderSoundTimer =
+    setInterval(() => {
+
+      playRestaurantOrderPattern();
+
+    }, 2200);
+
+
+  /*
+     Hard maximum:
+     20 seconds.
+  */
+
+  restaurantOrderSoundStopTimer =
+    setTimeout(() => {
+
+      stopNewOrderSound();
+
+    }, 20000);
+
+}
+
+
+/*
+   If admin changes an order to CONFIRMED,
+   stop the ringtone immediately.
+
+   Capture phase is used so this happens
+   before the normal change handler.
+*/
+
+document.addEventListener(
+  "change",
+  function(event){
+
+    const target = event.target;
+
+    if(
+      target &&
+      target.matches &&
+      target.matches(".order-status-select-v2")
+    ){
+
+      if(
+        String(target.value).toLowerCase()
+        === "confirmed"
+      ){
+
+        stopNewOrderSound();
+
+      }
+
+    }
+
+  },
+  true
+);
+
+
+/*
+   Also unlock audio when the existing
+   Enable Order Sound button is clicked.
+*/
+
+document.addEventListener(
+  "click",
+  function(event){
+
+    const target = event.target;
+
+    if(!target) return;
+
+    const text =
+      String(target.textContent || "")
+        .toLowerCase();
+
+    if(
+      text.includes("enable order sound")
+    ){
+
+      const ctx =
+        getRestaurantOrderAudio();
+
+      if(ctx){
+
+        ctx.resume()
+          .catch(() => {});
+
+      }
+
+      /*
+         Small silent warm-up.
+         This helps mobile browsers allow
+         future order alerts.
+      */
+
+      try{
+
+        const oscillator =
+          ctx.createOscillator();
+
+        const gain =
+          ctx.createGain();
+
+        gain.gain.value = 0.0001;
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start();
+
+        oscillator.stop(
+          ctx.currentTime + 0.05
+        );
+
+      }catch(error){
+
+        console.warn(
+          "Audio unlock failed:",
+          error
+        );
+
+      }
+
+    }
+
+  },
+  true
+);
+
+
+console.log(
+  "🔔 Restaurant order ringtone system loaded."
+);
+
