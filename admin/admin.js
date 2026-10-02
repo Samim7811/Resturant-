@@ -143,6 +143,9 @@ async function showAdmin(session){
 
   await loadRestaurant();
 
+  startOrderRealtime();
+
+
 }
 
 
@@ -4258,3 +4261,277 @@ function setupOrderNotifications() {
     });
 }
 
+
+
+/* =========================================================
+   REALTIME NEW ORDER + ORDER SOUND
+   ========================================================= */
+
+let orderRealtimeChannel = null;
+let orderSoundEnabled = false;
+let orderSoundContext = null;
+
+
+function createOrderSoundButton(){
+
+  if(document.getElementById("orderSoundButton")) return;
+
+  const button = document.createElement("button");
+
+  button.id = "orderSoundButton";
+
+  button.textContent = "🔊 Enable Order Sound";
+
+  button.style.cssText = `
+    position:fixed;
+    right:15px;
+    bottom:15px;
+    z-index:99999;
+    background:#111827;
+    color:white;
+    border:0;
+    border-radius:12px;
+    padding:12px 16px;
+    font-size:14px;
+    font-weight:700;
+    box-shadow:0 5px 20px rgba(0,0,0,.25);
+    cursor:pointer;
+  `;
+
+  button.onclick = async function(){
+
+    try{
+
+      const AudioContext =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if(!AudioContext){
+        alert("This browser does not support order sound.");
+        return;
+      }
+
+      if(!orderSoundContext){
+        orderSoundContext = new AudioContext();
+      }
+
+      if(orderSoundContext.state === "suspended"){
+        await orderSoundContext.resume();
+      }
+
+      orderSoundEnabled = true;
+
+      playNewOrderSound();
+
+      button.textContent = "🔔 Order Sound ON";
+      button.style.background = "#159447";
+
+      setTimeout(() => {
+        button.remove();
+      }, 2500);
+
+    }catch(error){
+
+      console.error(
+        "ORDER SOUND ENABLE ERROR:",
+        error
+      );
+
+    }
+
+  };
+
+  document.body.appendChild(button);
+}
+
+
+function playNewOrderSound(){
+
+  if(!orderSoundEnabled) return;
+
+  try{
+
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if(!AudioContext) return;
+
+    if(!orderSoundContext){
+      orderSoundContext = new AudioContext();
+    }
+
+    if(orderSoundContext.state === "suspended"){
+      orderSoundContext.resume();
+    }
+
+    const ctx = orderSoundContext;
+
+    const now = ctx.currentTime;
+
+    const oscillator1 =
+      ctx.createOscillator();
+
+    const gain1 =
+      ctx.createGain();
+
+    oscillator1.type = "sine";
+
+    oscillator1.frequency.setValueAtTime(
+      880,
+      now
+    );
+
+    oscillator1.frequency.setValueAtTime(
+      1175,
+      now + 0.18
+    );
+
+    gain1.gain.setValueAtTime(
+      0.0001,
+      now
+    );
+
+    gain1.gain.exponentialRampToValueAtTime(
+      0.25,
+      now + 0.02
+    );
+
+    gain1.gain.exponentialRampToValueAtTime(
+      0.0001,
+      now + 0.55
+    );
+
+    oscillator1.connect(gain1);
+    gain1.connect(ctx.destination);
+
+    oscillator1.start(now);
+    oscillator1.stop(now + 0.6);
+
+  }catch(error){
+
+    console.error(
+      "ORDER SOUND ERROR:",
+      error
+    );
+
+  }
+}
+
+
+async function handleRealtimeNewOrder(order){
+
+  if(!order) return;
+
+  if(
+    currentRestaurant?.id &&
+    String(order.restaurant_id) !==
+    String(currentRestaurant.id)
+  ){
+    return;
+  }
+
+  console.log(
+    "🔔 NEW ORDER RECEIVED:",
+    order
+  );
+
+  playNewOrderSound();
+
+  /*
+    If Orders page is currently open,
+    reload the order list immediately.
+  */
+  const ordersPage =
+    document.getElementById("ordersPage");
+
+  if(
+    ordersPage &&
+    ordersPage.classList.contains("active")
+  ){
+    await loadOrders();
+  }
+
+  /*
+    Always refresh dashboard counters.
+  */
+  await loadDashboard();
+
+}
+
+
+function startOrderRealtime(){
+
+  if(!currentRestaurant?.id){
+    console.warn(
+      "Realtime not started: restaurant not loaded."
+    );
+    return;
+  }
+
+  if(orderRealtimeChannel){
+
+    try{
+      supabaseClient.removeChannel(
+        orderRealtimeChannel
+      );
+    }catch(error){
+      console.warn(
+        "Could not remove old realtime channel:",
+        error
+      );
+    }
+
+    orderRealtimeChannel = null;
+  }
+
+  console.log(
+    "🔌 Starting Orders Realtime for restaurant:",
+    currentRestaurant.id
+  );
+
+  orderRealtimeChannel =
+    supabaseClient
+      .channel(
+        "restaurant-orders-" +
+        String(currentRestaurant.id)
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "orders",
+          filter:
+            "restaurant_id=eq." +
+            String(currentRestaurant.id)
+        },
+        payload => {
+
+          console.log(
+            "🆕 REALTIME NEW ORDER:",
+            payload
+          );
+
+          handleRealtimeNewOrder(
+            payload.new
+          );
+
+        }
+      )
+      .subscribe(status => {
+
+        console.log(
+          "ORDERS REALTIME STATUS:",
+          status
+        );
+
+      });
+
+  createOrderSoundButton();
+}
+
+
+/* =========================================================
+   END REALTIME NEW ORDER + ORDER SOUND
+   ========================================================= */
