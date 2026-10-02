@@ -3647,21 +3647,15 @@ async function editProduct(id){
       .eq('restaurant_id', currentRestaurant.id)
       .single();
 
-
   if(error){
-
     alert(error.message);
     return;
-
   }
-
 
   productEditId = id;
 
-
   document.getElementById('productModalTitle').textContent =
     'Edit Product';
-
 
   document.getElementById('productName').value =
     data.name || '';
@@ -3683,20 +3677,61 @@ async function editProduct(id){
 
   document.getElementById('productPhoto').value = '';
 
-
+  /* Load all categories */
   await loadProductCategories();
 
+  const allCategories =
+    window.productCategoryData || [];
 
-  document.getElementById('productCategory').value =
-    data.category_id || '';
+  /*
+    product.category_id can contain:
+    - Main category ID
+    - Sub-category ID
+  */
 
+  const savedCategory =
+    allCategories.find(
+      c => c.id === data.category_id
+    );
 
-  await loadProductSubCategories(data.category_id || '');
+  let mainCategoryId = '';
+  let subCategoryId = '';
 
+  if(savedCategory){
 
+    if(savedCategory.parent_id){
+
+      /* Saved category is a sub-category */
+      mainCategoryId =
+        savedCategory.parent_id;
+
+      subCategoryId =
+        savedCategory.id;
+
+    }else{
+
+      /* Saved category is a main category */
+      mainCategoryId =
+        savedCategory.id;
+
+    }
+  }
+
+  /* Select main category */
+  const categorySelect =
+    document.getElementById('productCategory');
+
+  categorySelect.value =
+    mainCategoryId;
+
+  /* Load matching sub-categories */
+  await loadProductSubCategories(
+    subCategoryId
+  );
+
+  /* Product image preview */
   const preview =
     document.getElementById('productImagePreview');
-
 
   if(data.photo_url){
 
@@ -3710,8 +3745,9 @@ async function editProduct(id){
 
   }
 
-
-  document.getElementById('productModal').classList.add('show');
+  document
+    .getElementById('productModal')
+    .classList.add('show');
 
 }
 
