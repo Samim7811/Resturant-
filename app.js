@@ -219,11 +219,29 @@ async function bookTable(event) {
           (duration > 60 ? "s" : "")
       };
 
-      const insertResult = await supabaseClient
-        .from("reservations")
-        .insert(reservationPayload)
-        .select("id,booking_number,reservation_date,reservation_time,end_time,guests,status")
-        .single();
+      const rpcResult = await supabaseClient.rpc(
+      "create_customer_reservation",
+      {
+        p_restaurant_id: reservationPayload.restaurant_id,
+        p_table_id: reservationPayload.table_id,
+        p_customer_name: reservationPayload.customer_name,
+        p_customer_phone: reservationPayload.customer_phone,
+        p_reservation_date: reservationPayload.reservation_date,
+        p_reservation_time: reservationPayload.reservation_time,
+        p_duration_minutes: reservationPayload.duration_minutes,
+        p_end_time: reservationPayload.end_time,
+        p_guests: reservationPayload.guests,
+        p_status: reservationPayload.status,
+        p_notes: reservationPayload.notes
+      }
+    );
+
+    const insertResult = {
+      data: Array.isArray(rpcResult.data)
+        ? (rpcResult.data[0] || null)
+        : rpcResult.data,
+      error: rpcResult.error
+    };
 
       if (insertResult.error) {
         throw insertResult.error;
