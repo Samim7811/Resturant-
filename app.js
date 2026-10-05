@@ -2247,13 +2247,12 @@ function renderCustomerPopularProducts() {
   }
 
   const popular = customerProducts
-    .filter(product => product.bestseller === true)
-    .slice(0, 4);
+    .filter(product => product.bestseller === true);
 
   const productsToShow =
     popular.length > 0
       ? popular
-      : customerProducts.slice(0, 4);
+      : customerProducts;
 
   grid.innerHTML = productsToShow
     .map(product => customerProductCard(product))
@@ -3815,7 +3814,7 @@ async function loadPopularDishes() {
       .eq("available", true)
       .eq("bestseller", true)
       .order("created_at", { ascending: false })
-      .limit(4);
+      ;
 
     if (error) {
       console.error("Popular dishes error:", error);
