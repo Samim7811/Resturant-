@@ -3587,12 +3587,22 @@ function filterProducts(){
 
       const matchesSearch =
         !search ||
-        product.name.toLowerCase().includes(search);
+        String(product.name || '')
+          .toLowerCase()
+          .includes(search);
+
+
+      const productCategoryId =
+        product.category_id || '';
+
+      const parentCategoryId =
+        product.categories?.parent_id || '';
 
 
       const matchesCategory =
         !category ||
-        product.category_id === category;
+        productCategoryId === category ||
+        parentCategoryId === category;
 
 
       return matchesSearch && matchesCategory;
