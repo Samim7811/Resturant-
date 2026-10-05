@@ -120,15 +120,14 @@
       and order directly from your mobile. No waiting for a waiter.
     </p>
 
-    <a
-      href="https://lens.google.com/"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="primary-btn"
-      style="display:inline-block;margin-top:24px;"
-    >
-      📷 Scan QR & Order →
-    </a>
+    <button
+  type="button"
+  id="scanQrOrderBtn"
+  class="primary-btn"
+  style="display:inline-block;margin-top:24px;border:0;cursor:pointer;"
+>
+  📷 Scan QR & Order →
+</button>
   </div>
 
   <div class="qr-demo">
@@ -265,5 +264,146 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-client.js"></script>
 <script src="app.js"></script>
+
+<div id="qrScannerModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.92);align-items:center;justify-content:center;padding:20px">
+  <div style="width:100%;max-width:430px;background:#fff;border-radius:24px;padding:18px;position:relative;text-align:center">
+    <button id="closeQrScanner" type="button" style="position:absolute;right:12px;top:10px;width:38px;height:38px;border:0;border-radius:50%;background:#111;color:#fff;font-size:22px">×</button>
+
+    <h2>📷 Scan QR Code</h2>
+    <p style="color:#666;font-size:14px">Point your camera at the restaurant QR code</p>
+
+    <div style="position:relative;width:100%;aspect-ratio:1/1;background:#111;border-radius:18px;overflow:hidden">
+      <video id="qrScannerVideo" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover"></video>
+      <div style="position:absolute;left:15%;right:15%;top:15%;bottom:15%;border:3px solid #9cff00;border-radius:18px;pointer-events:none"></div>
+    </div>
+
+    <p id="qrScannerStatus" style="font-weight:600">Starting camera...</p>
+
+    <button id="qrScannerRetry" type="button" style="display:none;width:100%;padding:13px;border:0;border-radius:12px;background:#111;color:#fff;font-weight:700">
+      🔄 Try Camera Again
+    </button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<script>
+(function () {
+  const openBtn = document.getElementById("scanQrOrderBtn");
+  const modal = document.getElementById("qrScannerModal");
+  const video = document.getElementById("qrScannerVideo");
+  const status = document.getElementById("qrScannerStatus");
+  const closeBtn = document.getElementById("closeQrScanner");
+  const retryBtn = document.getElementById("qrScannerRetry");
+
+  if (!openBtn || !modal || !video) return;
+
+  let stream = null;
+  let scanning = false;
+  let frame = null;
+
+  function stopScanner() {
+    scanning = false;
+    if (frame) cancelAnimationFrame(frame);
+    frame = null;
+
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+
+    video.srcObject = null;
+  }
+
+  function closeScanner() {
+    stopScanner();
+    modal.style.display = "none";
+    document.body.style.overflow = "";
+  }
+
+  async function startScanner() {
+    stopScanner();
+    retryBtn.style.display = "none";
+    status.textContent = "Starting camera...";
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+
+      video.srcObject = stream;
+      await video.play();
+
+      scanning = true;
+      status.textContent = "Point the camera at a QR code";
+      scanFrame();
+
+    } catch (e) {
+      console.error(e);
+      status.textContent = "❌ Camera permission is required.";
+      retryBtn.style.display = "block";
+    }
+  }
+
+  function scanFrame() {
+    if (!scanning) return;
+
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const ctx = canvas.getContext("2d", {willReadFrequently:true});
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      if (typeof jsQR === "function") {
+        const code = jsQR(
+          image.data,
+          image.width,
+          image.height,
+          {inversionAttempts:"attemptBoth"}
+        );
+
+        if (code && code.data) {
+          scanning = false;
+          status.textContent = "✅ QR detected! Opening...";
+
+          const url = code.data.trim();
+
+          setTimeout(() => {
+            stopScanner();
+            modal.style.display = "none";
+            document.body.style.overflow = "";
+
+            if (/^https?:\/\//i.test(url)) {
+              window.location.href = url;
+            } else {
+              alert("QR code does not contain a valid website link.");
+            }
+          }, 500);
+
+          return;
+        }
+      }
+    }
+
+    frame = requestAnimationFrame(scanFrame);
+  }
+
+  openBtn.addEventListener("click", () => {
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+    startScanner();
+  });
+
+  closeBtn.addEventListener("click", closeScanner);
+  retryBtn.addEventListener("click", startScanner);
+
+})();
+</script>
+
 </body>
 </html>
